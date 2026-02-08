@@ -9,6 +9,14 @@ import retrofit2.http.Query
 
 interface TmdbApiService {
 
+  // Search
+  @GET("search/multi")
+  suspend fun searchMulti(
+      @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
+      @Query("query") query: String,
+      @Query("page") page: Int = 1,
+  ): SearchResponse
+
   // Home Screen
   @GET("trending/movie/week")
   suspend fun getTrendingMovies(

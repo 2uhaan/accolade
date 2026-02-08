@@ -5,6 +5,7 @@ import com.ruhaan.accolade.domain.model.CrewMember
 import com.ruhaan.accolade.domain.model.MediaType
 import com.ruhaan.accolade.domain.model.Movie
 import com.ruhaan.accolade.domain.model.MovieDetail
+import com.ruhaan.accolade.domain.model.SearchResult
 
 interface MovieRepository {
   // Home screen methods
@@ -29,4 +30,7 @@ interface MovieRepository {
   suspend fun getMoviesByGenre(genreId: Int, page: Int): List<Movie>
 
   suspend fun getTvShowsByGenre(genreId: Int, page: Int): List<Movie>
+
+  // Search
+  suspend fun searchMulti(query: String): List<SearchResult>
 }

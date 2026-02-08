@@ -3,6 +3,7 @@ package com.ruhaan.accolade.data.repository
 import com.ruhaan.accolade.data.remote.api.TmdbApiService
 import com.ruhaan.accolade.domain.mapper.MovieDetailMapper
 import com.ruhaan.accolade.domain.mapper.MovieMapper
+import com.ruhaan.accolade.domain.mapper.SearchMapper
 import com.ruhaan.accolade.domain.model.*
 import com.ruhaan.accolade.domain.repository.MovieRepository
 import javax.inject.Inject
@@ -121,5 +122,10 @@ class MovieRepositoryImpl @Inject constructor(private val apiService: TmdbApiSer
             page = page,
         )
     return MovieMapper.mapFromTvShowDtoList(response.results)
+  }
+
+  override suspend fun searchMulti(query: String): List<SearchResult> {
+    val response = apiService.searchMulti(query = query, page = 1)
+    return SearchMapper.mapSearchResults(response.results).take(20) // Limit to 20 results
   }
 }
