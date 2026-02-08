@@ -14,6 +14,7 @@ data class MovieDetailDto(
     @SerializedName("production_countries") val productionCountries: List<ProductionCountry>,
     @SerializedName("spoken_languages") val spokenLanguages: List<SpokenLanguage>,
     @SerializedName("vote_average") val voteAverage: Double,
+    val genres: List<GenreDto> = emptyList(), // ADD THIS
 )
 
 // TV Show Detail Response
@@ -29,30 +30,30 @@ data class TvShowDetailDto(
     @SerializedName("spoken_languages") val spokenLanguages: List<SpokenLanguage>,
     @SerializedName("vote_average") val voteAverage: Double,
     @SerializedName("created_by") val createdBy: List<Creator>,
+    val genres: List<GenreDto> = emptyList(), // ADD THIS
 )
 
-data class ProductionCountry(
-    @SerializedName("iso_3166_1") val code: String,
-    val name: String
-)
+data class GenreDto(val id: Int, val name: String)
+
+data class ProductionCountry(@SerializedName("iso_3166_1") val code: String, val name: String)
 
 data class SpokenLanguage(
     @SerializedName("iso_639_1") val code: String,
     val name: String,
-    @SerializedName("english_name") val englishName: String
+    @SerializedName("english_name") val englishName: String,
 )
 
 data class Creator(
     val id: Int,
     val name: String,
-    @SerializedName("profile_path") val profilePath: String?
+    @SerializedName("profile_path") val profilePath: String?,
 )
 
 // Credits Response (same for movies and TV)
 data class CreditsResponse(
     val id: Int,
     val cast: List<CastMemberDto>,
-    val crew: List<CrewMemberDto>
+    val crew: List<CrewMemberDto>,
 )
 
 data class CastMemberDto(
@@ -60,7 +61,7 @@ data class CastMemberDto(
     val name: String,
     val character: String,
     @SerializedName("profile_path") val profilePath: String?,
-    val order: Int // TMDB orders cast by importance
+    val order: Int, // TMDB orders cast by importance
 )
 
 data class CrewMemberDto(
@@ -68,14 +69,11 @@ data class CrewMemberDto(
     val name: String,
     val job: String,
     val department: String,
-    @SerializedName("profile_path") val profilePath: String?
+    @SerializedName("profile_path") val profilePath: String?,
 )
 
 // Videos Response
-data class VideosResponse(
-    val id: Int,
-    val results: List<VideoDto>
-)
+data class VideosResponse(val id: Int, val results: List<VideoDto>)
 
 data class VideoDto(
     val id: String,
@@ -83,5 +81,5 @@ data class VideoDto(
     val name: String,
     val site: String, // "YouTube"
     val type: String, // "Trailer", "Teaser", etc.
-    val official: Boolean
+    val official: Boolean,
 )

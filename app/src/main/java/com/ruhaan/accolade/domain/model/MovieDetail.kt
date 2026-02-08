@@ -13,6 +13,7 @@ data class MovieDetail(
     val synopsis: String,
     val rating: Int, // percentage (0-100)
     val trailer: Trailer?,
+    val genres: List<Genre> = emptyList(), // ADD THIS
 )
 
 data class Trailer(
@@ -34,3 +35,5 @@ data class CrewMember(
     val job: String,
     val profilePath: String?,
 )
+
+data class Genre(val id: Int, val name: String)

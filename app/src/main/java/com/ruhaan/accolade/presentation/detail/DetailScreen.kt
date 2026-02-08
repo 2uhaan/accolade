@@ -22,6 +22,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.ruhaan.accolade.domain.model.Genre
 import com.ruhaan.accolade.domain.model.MediaType
 import com.ruhaan.accolade.domain.model.MovieDetail
 
@@ -99,6 +102,9 @@ fun DetailScreen(
               onCrewClick = {
                 navController.navigate("crew/${state.detail.id}/${state.detail.mediaType.name}")
               },
+              onGenreClick = { genre ->
+                navController.navigate("category/${genre.id}/${genre.name}")
+              },
           )
         }
       }
@@ -107,7 +113,12 @@ fun DetailScreen(
 }
 
 @Composable
-private fun DetailContent(detail: MovieDetail, onCastClick: () -> Unit, onCrewClick: () -> Unit) {
+private fun DetailContent(
+    detail: MovieDetail,
+    onCastClick: () -> Unit,
+    onCrewClick: () -> Unit,
+    onGenreClick: (Genre) -> Unit,
+) {
   val scrollState = rememberScrollState()
 
   Column(
@@ -127,6 +138,11 @@ private fun DetailContent(detail: MovieDetail, onCastClick: () -> Unit, onCrewCl
 
     // Meta Information
     MetaInfoSection(detail = detail)
+
+    // ADD THIS - Genre chips section
+    if (detail.genres.isNotEmpty()) {
+      GenreChipsSection(genres = detail.genres, onGenreClick = onGenreClick)
+    }
 
     // Synopsis
     SynopsisSection(synopsis = detail.synopsis)
@@ -168,6 +184,37 @@ private fun PosterSection(posterPath: String) {
         }
       },
   )
+}
+
+// ADD THIS NEW COMPOSABLE
+@Composable
+private fun GenreChipsSection(genres: List<Genre>, onGenreClick: (Genre) -> Unit) {
+  Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Text(
+        text = "Genres",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      genres.forEach { genre ->
+        FilterChip(
+            selected = false,
+            onClick = { onGenreClick(genre) },
+            label = { Text(genre.name) },
+            colors =
+                FilterChipDefaults.filterChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+        )
+      }
+    }
+  }
 }
 
 @Composable

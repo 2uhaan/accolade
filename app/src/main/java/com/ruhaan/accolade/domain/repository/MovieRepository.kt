@@ -25,4 +25,8 @@ interface MovieRepository {
   suspend fun getCast(id: Int, mediaType: MediaType): List<CastMember>
 
   suspend fun getCrew(id: Int, mediaType: MediaType): List<CrewMember>
+
+  suspend fun getMoviesByGenre(genreId: Int, page: Int): List<Movie>
+
+  suspend fun getTvShowsByGenre(genreId: Int, page: Int): List<Movie>
 }

@@ -11,6 +11,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ruhaan.accolade.domain.model.MediaType
+import com.ruhaan.accolade.presentation.category.AllCategoriesScreen
+import com.ruhaan.accolade.presentation.category.CategoryScreen
 import com.ruhaan.accolade.presentation.detail.DetailScreen
 import com.ruhaan.accolade.presentation.detail.components.CastScreen
 import com.ruhaan.accolade.presentation.detail.components.CrewScreen
@@ -32,9 +34,7 @@ fun NavGraph() {
 
       composable("schedule") { ScheduleScreen(navController = navController) }
 
-      composable("profile") {
-        // Your profile screen
-      }
+      composable("category") { AllCategoriesScreen(navController = navController) }
 
       // Detail Screen
       composable(
@@ -82,6 +82,20 @@ fun NavGraph() {
         val mediaType = MediaType.valueOf(mediaTypeString)
 
         CrewScreen(navController = navController, movieId = movieId, mediaType = mediaType)
+      }
+      // ADD THIS - Category Screen
+      composable(
+          route = "category/{genreId}/{genreName}",
+          arguments =
+              listOf(
+                  navArgument("genreId") { type = NavType.IntType },
+                  navArgument("genreName") { type = NavType.StringType },
+              ),
+      ) { backStackEntry ->
+        val genreId = backStackEntry.arguments?.getInt("genreId") ?: 0
+        val genreName = backStackEntry.arguments?.getString("genreName") ?: "Category"
+
+        CategoryScreen(navController = navController, genreId = genreId, genreName = genreName)
       }
     }
 

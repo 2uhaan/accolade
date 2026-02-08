@@ -106,4 +106,20 @@ class MovieRepositoryImpl @Inject constructor(private val apiService: TmdbApiSer
         }
     return MovieDetailMapper.mapCrew(credits)
   }
+
+  override suspend fun getMoviesByGenre(genreId: Int, page: Int): List<Movie> {
+    val response =
+        apiService.discoverMoviesByGenre(genreId = genreId, sortBy = "popularity.desc", page = page)
+    return MovieMapper.mapFromDtoList(response.results)
+  }
+
+  override suspend fun getTvShowsByGenre(genreId: Int, page: Int): List<Movie> {
+    val response =
+        apiService.discoverTvShowsByGenre(
+            genreId = genreId,
+            sortBy = "popularity.desc",
+            page = page,
+        )
+    return MovieMapper.mapFromTvShowDtoList(response.results)
+  }
 }
