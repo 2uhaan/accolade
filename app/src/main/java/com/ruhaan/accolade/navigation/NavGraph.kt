@@ -5,9 +5,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.ruhaan.accolade.domain.model.MediaType
+import com.ruhaan.accolade.presentation.detail.DetailScreen
+import com.ruhaan.accolade.presentation.detail.components.CastScreen
+import com.ruhaan.accolade.presentation.detail.components.CrewScreen
 import com.ruhaan.accolade.presentation.home.HomeScreen
 import com.ruhaan.accolade.presentation.home.components.FloatingBottomBar
 import com.ruhaan.accolade.presentation.schedule.ScheduleScreen
@@ -28,6 +34,54 @@ fun NavGraph() {
 
       composable("profile") {
         // Your profile screen
+      }
+
+      // Detail Screen
+      composable(
+          route = "detail/{movieId}/{mediaType}",
+          arguments =
+              listOf(
+                  navArgument("movieId") { type = NavType.IntType },
+                  navArgument("mediaType") { type = NavType.StringType },
+              ),
+      ) { backStackEntry ->
+        val movieId = backStackEntry.arguments?.getInt("movieId") ?: 0
+        val mediaTypeString = backStackEntry.arguments?.getString("mediaType") ?: "MOVIE"
+        val mediaType = MediaType.valueOf(mediaTypeString)
+
+        DetailScreen(navController = navController, movieId = movieId, mediaType = mediaType)
+      }
+
+      // Cast Screen
+      composable(
+          route = "cast/{movieId}/{mediaType}",
+          arguments =
+              listOf(
+                  navArgument("movieId") { type = NavType.IntType },
+                  navArgument("mediaType") { type = NavType.StringType },
+              ),
+      ) { backStackEntry ->
+        val movieId = backStackEntry.arguments?.getInt("movieId") ?: 0
+        val mediaTypeString = backStackEntry.arguments?.getString("mediaType") ?: "MOVIE"
+        val mediaType = MediaType.valueOf(mediaTypeString)
+
+        CastScreen(navController = navController, movieId = movieId, mediaType = mediaType)
+      }
+
+      // Crew Screen
+      composable(
+          route = "crew/{movieId}/{mediaType}",
+          arguments =
+              listOf(
+                  navArgument("movieId") { type = NavType.IntType },
+                  navArgument("mediaType") { type = NavType.StringType },
+              ),
+      ) { backStackEntry ->
+        val movieId = backStackEntry.arguments?.getInt("movieId") ?: 0
+        val mediaTypeString = backStackEntry.arguments?.getString("mediaType") ?: "MOVIE"
+        val mediaType = MediaType.valueOf(mediaTypeString)
+
+        CrewScreen(navController = navController, movieId = movieId, mediaType = mediaType)
       }
     }
 

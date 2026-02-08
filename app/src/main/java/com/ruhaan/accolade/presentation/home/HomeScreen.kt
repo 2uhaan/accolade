@@ -76,7 +76,11 @@ fun HomeScreen(navController: NavHostController, viewModel: HomeViewModel = hilt
                   Box(modifier = Modifier.weight(1f)) {
                     MovieCard(
                         movie = movie,
-                        onMovieClick = { println("Clicked: ${it.title} (ID: ${it.id})") },
+                        onMovieClick = { clickedMovie ->
+                          navController.navigate(
+                              "detail/${clickedMovie.id}/${clickedMovie.mediaType.name}"
+                          )
+                        },
                     )
                   }
                 }
@@ -102,7 +106,11 @@ fun HomeScreen(navController: NavHostController, viewModel: HomeViewModel = hilt
                   Box(modifier = Modifier.weight(1f)) {
                     MovieCard(
                         movie = movie,
-                        onMovieClick = { println("Clicked: ${it.title} (ID: ${it.id})") },
+                        onMovieClick = { clickedMovie ->
+                          navController.navigate(
+                              "detail/${clickedMovie.id}/${clickedMovie.mediaType.name}"
+                          )
+                        },
                     )
                   }
                 }
@@ -128,7 +136,11 @@ fun HomeScreen(navController: NavHostController, viewModel: HomeViewModel = hilt
                   Box(modifier = Modifier.weight(1f)) {
                     MovieCard(
                         movie = movie,
-                        onMovieClick = { println("Clicked: ${it.title} (ID: ${it.id})") },
+                        onMovieClick = { clickedMovie ->
+                          navController.navigate(
+                              "detail/${clickedMovie.id}/${clickedMovie.mediaType.name}"
+                          )
+                        },
                     )
                   }
                 }
@@ -145,4 +157,3 @@ fun HomeScreen(navController: NavHostController, viewModel: HomeViewModel = hilt
     }
   }
 }
-
