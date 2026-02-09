@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -187,6 +189,7 @@ private fun PosterSection(posterPath: String) {
 }
 
 // ADD THIS NEW COMPOSABLE
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GenreChipsSection(genres: List<Genre>, onGenreClick: (Genre) -> Unit) {
   Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -197,7 +200,7 @@ private fun GenreChipsSection(genres: List<Genre>, onGenreClick: (Genre) -> Unit
         color = MaterialTheme.colorScheme.onBackground,
     )
 
-    androidx.compose.foundation.layout.FlowRow(
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
