@@ -1,14 +1,41 @@
 package com.ruhaan.accolade.presentation.schedule
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -19,7 +46,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.ruhaan.accolade.domain.model.Movie
 import com.ruhaan.accolade.presentation.home.components.FloatingBottomBar
-import com.ruhaan.accolade.presentation.home.components.ModernTopBar
 import com.ruhaan.accolade.presentation.home.components.MovieCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,226 +54,222 @@ fun ScheduleScreen(
     navController: NavHostController,
     viewModel: ScheduleViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    var showFilterMenu by remember { mutableStateOf(false) }
+  val uiState by viewModel.uiState.collectAsState()
+  var showFilterMenu by remember { mutableStateOf(false) }
 
-    Box(
-        modifier =
-            Modifier.fillMaxSize()
-                .background(
-                    brush =
-                        Brush.verticalGradient(
-                            colors =
-                                listOf(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                    MaterialTheme.colorScheme.background,
-                                )
-                        )
-                )
+  Box(
+      modifier =
+          Modifier.fillMaxSize()
+              .background(
+                  brush =
+                      Brush.verticalGradient(
+                          colors =
+                              listOf(
+                                  MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                  MaterialTheme.colorScheme.background,
+                              )
+                      )
+              )
+  ) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 140.dp, top = 20.dp),
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 140.dp, top = 20.dp),
+      // Page title + filter
+      item {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Page title + filter
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Schedule",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f),
-                    )
+          Text(
+              text = "Schedule",
+              style = MaterialTheme.typography.headlineLarge,
+              fontWeight = FontWeight.Bold,
+              modifier = Modifier.weight(1f),
+          )
 
-                    // Filter dropdown
-                    Box {
-                        TextButton(
-                            onClick = { showFilterMenu = true },
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Text(
-                                text = when (uiState.selectedFilter) {
-                                    ContentFilter.MOVIES -> "Movies"
-                                    ContentFilter.TV_SHOWS -> "TV Shows"
-                                    ContentFilter.BOTH -> "All"
-                                },
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("▼", fontSize = 12.sp)
-                        }
-
-                        DropdownMenu(
-                            expanded = showFilterMenu,
-                            onDismissRequest = { showFilterMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Movies Only") },
-                                onClick = {
-                                    viewModel.updateFilter(ContentFilter.MOVIES)
-                                    showFilterMenu = false
-                                },
-                                leadingIcon = {
-                                    if (uiState.selectedFilter == ContentFilter.MOVIES) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("TV Shows Only") },
-                                onClick = {
-                                    viewModel.updateFilter(ContentFilter.TV_SHOWS)
-                                    showFilterMenu = false
-                                },
-                                leadingIcon = {
-                                    if (uiState.selectedFilter == ContentFilter.TV_SHOWS) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("All Content") },
-                                onClick = {
-                                    viewModel.updateFilter(ContentFilter.BOTH)
-                                    showFilterMenu = false
-                                },
-                                leadingIcon = {
-                                    if (uiState.selectedFilter == ContentFilter.BOTH) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
+          // Filter dropdown
+          Box {
+            TextButton(
+                onClick = { showFilterMenu = true },
+                colors =
+                    ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    ),
+            ) {
+              Text(
+                  text =
+                      when (uiState.selectedFilter) {
+                        ContentFilter.MOVIES -> "Movies"
+                        ContentFilter.TV_SHOWS -> "TV Shows"
+                        ContentFilter.BOTH -> "All"
+                      },
+                  style = MaterialTheme.typography.bodyLarge,
+                  fontWeight = FontWeight.SemiBold,
+              )
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("▼", fontSize = 12.sp)
             }
 
-            when {
-                uiState.isLoading -> {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().height(200.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        }
+            DropdownMenu(expanded = showFilterMenu, onDismissRequest = { showFilterMenu = false }) {
+              DropdownMenuItem(
+                  text = { Text("Movies Only") },
+                  onClick = {
+                    viewModel.updateFilter(ContentFilter.MOVIES)
+                    showFilterMenu = false
+                  },
+                  leadingIcon = {
+                    if (uiState.selectedFilter == ContentFilter.MOVIES) {
+                      Icon(
+                          imageVector = Icons.Default.Check,
+                          contentDescription = null,
+                          tint = MaterialTheme.colorScheme.primary,
+                      )
                     }
-                }
-
-                uiState.error != null -> {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(24.dp),
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Text(
-                                    "Network Error",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    uiState.error ?: "Unknown error",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Button(onClick = { viewModel.refreshContent() }, shape = RoundedCornerShape(12.dp)) {
-                                    Text("Retry")
-                                }
-                            }
-                        }
+                  },
+              )
+              DropdownMenuItem(
+                  text = { Text("TV Shows Only") },
+                  onClick = {
+                    viewModel.updateFilter(ContentFilter.TV_SHOWS)
+                    showFilterMenu = false
+                  },
+                  leadingIcon = {
+                    if (uiState.selectedFilter == ContentFilter.TV_SHOWS) {
+                      Icon(
+                          imageVector = Icons.Default.Check,
+                          contentDescription = null,
+                          tint = MaterialTheme.colorScheme.primary,
+                      )
                     }
-                }
-
-                uiState.upcomingMovies.isEmpty() -> {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "No upcoming releases",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                TextButton(onClick = { viewModel.refreshContent() }) {
-                                    Text("Refresh")
-                                }
-                            }
-                        }
+                  },
+              )
+              DropdownMenuItem(
+                  text = { Text("All Content") },
+                  onClick = {
+                    viewModel.updateFilter(ContentFilter.BOTH)
+                    showFilterMenu = false
+                  },
+                  leadingIcon = {
+                    if (uiState.selectedFilter == ContentFilter.BOTH) {
+                      Icon(
+                          imageVector = Icons.Default.Check,
+                          contentDescription = null,
+                          tint = MaterialTheme.colorScheme.primary,
+                      )
                     }
-                }
-
-                else -> {
-                    // Date-grouped sections
-                    items(uiState.upcomingMovies) { dateGroup ->
-                        DateSection(
-                            dateGroup = dateGroup,
-                            onMovieClick = { movie -> println("📅 SCHEDULE Clicked: ${movie.title}") },
-                        )
-                    }
-
-                    // Load More button - only show if has more pages
-                    if (uiState.hasMorePages) {
-                        item {
-                            Button(
-                                onClick = { viewModel.loadMoreContent() },
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                enabled = !uiState.isLoadingMore,
-                            ) {
-                                if (uiState.isLoadingMore) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text("Loading...")
-                                } else {
-                                    Text("Load More")
-                                }
-                            }
-                        }
-                    }
-                }
+                  },
+              )
             }
+          }
+        }
+      }
+
+      when {
+        uiState.isLoading -> {
+          item {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+              CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+          }
         }
 
-        ModernTopBar(
-            onSearchClick = { println("Search clicked") },
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
-        FloatingBottomBar(
-            navController = navController,
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
+        uiState.error != null -> {
+          item {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+              Column(
+                  modifier = Modifier.padding(24.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally,
+              ) {
+                Text(
+                    "Network Error",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    uiState.error ?: "Unknown error",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { viewModel.refreshContent() },
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                  Text("Retry")
+                }
+              }
+            }
+          }
+        }
+
+        uiState.upcomingMovies.isEmpty() -> {
+          item {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+              Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "No upcoming releases",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = { viewModel.refreshContent() }) { Text("Refresh") }
+              }
+            }
+          }
+        }
+
+        else -> {
+          // Date-grouped sections
+          items(uiState.upcomingMovies) { dateGroup ->
+            DateSection(
+                dateGroup = dateGroup,
+                onMovieClick = { movie -> println("📅 SCHEDULE Clicked: ${movie.title}") },
+            )
+          }
+
+          // Load More button - only show if has more pages
+          if (uiState.hasMorePages) {
+            item {
+              Button(
+                  onClick = { viewModel.loadMoreContent() },
+                  modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+                  shape = RoundedCornerShape(12.dp),
+                  enabled = !uiState.isLoadingMore,
+              ) {
+                if (uiState.isLoadingMore) {
+                  CircularProgressIndicator(
+                      modifier = Modifier.size(16.dp),
+                      strokeWidth = 2.dp,
+                      color = MaterialTheme.colorScheme.onPrimary,
+                  )
+                  Spacer(modifier = Modifier.width(12.dp))
+                  Text("Loading...")
+                } else {
+                  Text("Load More")
+                }
+              }
+            }
+          }
+        }
+      }
     }
+
+    FloatingBottomBar(
+        navController = navController,
+        modifier = Modifier.align(Alignment.BottomCenter),
+    )
+  }
 }
 
 @Composable

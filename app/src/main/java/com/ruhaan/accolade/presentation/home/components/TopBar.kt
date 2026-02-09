@@ -1,18 +1,29 @@
 package com.ruhaan.accolade.presentation.home.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -25,7 +36,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun ModernTopBar(onSearchClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ModernTopBar(
+    isSearchExpanded: Boolean,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onSearchClick: () -> Unit,
+    onSearchClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
   Box(
       modifier =
           modifier
@@ -40,36 +58,90 @@ fun ModernTopBar(onSearchClick: () -> Unit, modifier: Modifier = Modifier) {
                   shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
               )
               .padding(horizontal = 20.dp)
-              .padding(top = 60.dp, bottom = 25.dp) // Extra top padding for status bar
+              .padding(top = 60.dp, bottom = 25.dp)
   ) {
-    // App Name on the left
-    Text(
-        text = "Accolade",
-        fontSize = 25.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = Color.White,
-        modifier = Modifier.align(Alignment.CenterStart),
-    )
-
-    // Search icon in a circular background on the right
-    Box(
-        modifier =
-            Modifier.align(Alignment.CenterEnd)
-                .size(45.dp)
-                .background(color = Color.White.copy(alpha = 0.3f), shape = CircleShape)
-                .clickable(
-                    onClick = onSearchClick,
-                    indication = ripple(bounded = true, radius = 20.dp),
-                    interactionSource = remember { MutableInteractionSource() },
-                ),
-        contentAlignment = Alignment.Center,
+    AnimatedVisibility(
+        visible = !isSearchExpanded,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically(),
     ) {
-      Icon(
-          imageVector = Icons.Default.Search,
-          contentDescription = "Search",
-          tint = Color.White,
-          modifier = Modifier.size(25.dp),
-      )
+      // Collapsed State - Original Top Bar
+      Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(
+            text = "Accolade",
+            fontSize = 25.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+        )
+
+        Box(
+            modifier =
+                Modifier.size(45.dp)
+                    .background(color = Color.White.copy(alpha = 0.3f), shape = CircleShape)
+                    .clickable(
+                        onClick = onSearchClick,
+                        indication = ripple(bounded = true, radius = 20.dp),
+                        interactionSource = remember { MutableInteractionSource() },
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+          Icon(
+              imageVector = Icons.Default.Search,
+              contentDescription = "Search",
+              tint = Color.White,
+              modifier = Modifier.size(25.dp),
+          )
+        }
+      }
+    }
+
+    AnimatedVisibility(
+        visible = isSearchExpanded,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically(),
+    ) {
+      // Expanded State - Search Bar
+      Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(12.dp),
+          verticalAlignment = Alignment.CenterVertically,
+      ) {
+        // Close button
+        IconButton(onClick = onSearchClose, modifier = Modifier.size(45.dp)) {
+          Icon(
+              imageVector = Icons.Default.Close,
+              contentDescription = "Close Search",
+              tint = Color.White,
+              modifier = Modifier.size(25.dp),
+          )
+        }
+
+        // Search input field
+        TextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier.weight(1f),
+            placeholder = {
+              Text("Search movies & TV shows...", color = Color.White.copy(alpha = 0.7f))
+            },
+            colors =
+                TextFieldDefaults.colors(
+                    focusedContainerColor = Color.White.copy(alpha = 0.2f),
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.2f),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    cursorColor = Color.White,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                ),
+            shape = RoundedCornerShape(16.dp),
+            singleLine = true,
+        )
+      }
     }
   }
 }

@@ -1,8 +1,10 @@
 package com.ruhaan.accolade.data.repository
 
 import com.ruhaan.accolade.data.remote.api.TmdbApiService
+import com.ruhaan.accolade.domain.mapper.MovieDetailMapper
 import com.ruhaan.accolade.domain.mapper.MovieMapper
-import com.ruhaan.accolade.domain.model.Movie
+import com.ruhaan.accolade.domain.mapper.SearchMapper
+import com.ruhaan.accolade.domain.model.*
 import com.ruhaan.accolade.domain.repository.MovieRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -69,5 +71,61 @@ class MovieRepositoryImpl @Inject constructor(private val apiService: TmdbApiSer
         )
 
     return MovieMapper.mapFromTvShowDtoList(response.results)
+  }
+
+  override suspend fun getMovieDetail(id: Int, mediaType: MediaType): MovieDetail {
+    return when (mediaType) {
+      MediaType.MOVIE -> {
+        val detail = apiService.getMovieDetail(id)
+        val credits = apiService.getMovieCredits(id)
+        val videos = apiService.getMovieVideos(id)
+        MovieDetailMapper.mapMovieDetail(detail, credits, videos)
+      }
+      MediaType.TV_SHOW -> {
+        val detail = apiService.getTvShowDetail(id)
+        val credits = apiService.getTvShowCredits(id)
+        val videos = apiService.getTvShowVideos(id)
+        MovieDetailMapper.mapTvShowDetail(detail, credits, videos)
+      }
+    }
+  }
+
+  override suspend fun getCast(id: Int, mediaType: MediaType): List<CastMember> {
+    val credits =
+        when (mediaType) {
+          MediaType.MOVIE -> apiService.getMovieCredits(id)
+          MediaType.TV_SHOW -> apiService.getTvShowCredits(id)
+        }
+    return MovieDetailMapper.mapCast(credits)
+  }
+
+  override suspend fun getCrew(id: Int, mediaType: MediaType): List<CrewMember> {
+    val credits =
+        when (mediaType) {
+          MediaType.MOVIE -> apiService.getMovieCredits(id)
+          MediaType.TV_SHOW -> apiService.getTvShowCredits(id)
+        }
+    return MovieDetailMapper.mapCrew(credits)
+  }
+
+  override suspend fun getMoviesByGenre(genreId: Int, page: Int): List<Movie> {
+    val response =
+        apiService.discoverMoviesByGenre(genreId = genreId, sortBy = "popularity.desc", page = page)
+    return MovieMapper.mapFromDtoList(response.results)
+  }
+
+  override suspend fun getTvShowsByGenre(genreId: Int, page: Int): List<Movie> {
+    val response =
+        apiService.discoverTvShowsByGenre(
+            genreId = genreId,
+            sortBy = "popularity.desc",
+            page = page,
+        )
+    return MovieMapper.mapFromTvShowDtoList(response.results)
+  }
+
+  override suspend fun searchMulti(query: String): List<SearchResult> {
+    val response = apiService.searchMulti(query = query, page = 1)
+    return SearchMapper.mapSearchResults(response.results).take(20) // Limit to 20 results
   }
 }
