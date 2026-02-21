@@ -13,9 +13,10 @@ import androidx.navigation.navArgument
 import com.ruhaan.accolade.domain.model.MediaType
 import com.ruhaan.accolade.presentation.category.AllCategoriesScreen
 import com.ruhaan.accolade.presentation.category.CategoryScreen
+import com.ruhaan.accolade.presentation.common.NavigationAnimations
 import com.ruhaan.accolade.presentation.detail.DetailScreen
-import com.ruhaan.accolade.presentation.detail.components.CastScreen
-import com.ruhaan.accolade.presentation.detail.components.CrewScreen
+import com.ruhaan.accolade.presentation.detail.components.CastCrewScreen
+import com.ruhaan.accolade.presentation.detail.components.CastCrewScreenType
 import com.ruhaan.accolade.presentation.home.HomeScreen
 import com.ruhaan.accolade.presentation.home.components.FloatingBottomBar
 import com.ruhaan.accolade.presentation.schedule.ScheduleScreen
@@ -30,11 +31,35 @@ fun NavGraph() {
         startDestination = "home",
         modifier = Modifier.fillMaxSize(),
     ) {
-      composable("home") { HomeScreen(navController = navController) }
+      composable(
+          route = "home",
+          enterTransition = NavigationAnimations.mainScreenEnter(),
+          exitTransition = NavigationAnimations.mainScreenExit(),
+          popEnterTransition = NavigationAnimations.mainScreenPopEnter(),
+          popExitTransition = NavigationAnimations.mainScreenPopExit(),
+      ) {
+        HomeScreen(navController = navController)
+      }
 
-      composable("schedule") { ScheduleScreen(navController = navController) }
+      composable(
+          route = "schedule",
+          enterTransition = NavigationAnimations.mainScreenEnter(),
+          exitTransition = NavigationAnimations.mainScreenExit(),
+          popEnterTransition = NavigationAnimations.mainScreenPopEnter(),
+          popExitTransition = NavigationAnimations.mainScreenPopExit(),
+      ) {
+        ScheduleScreen(navController = navController)
+      }
 
-      composable("category") { AllCategoriesScreen(navController = navController) }
+      composable(
+          route = "category",
+          enterTransition = NavigationAnimations.mainScreenEnter(),
+          exitTransition = NavigationAnimations.mainScreenExit(),
+          popEnterTransition = NavigationAnimations.mainScreenPopEnter(),
+          popExitTransition = NavigationAnimations.mainScreenPopExit(),
+      ) {
+        AllCategoriesScreen(navController = navController)
+      }
 
       // Detail Screen
       composable(
@@ -52,38 +77,32 @@ fun NavGraph() {
         DetailScreen(navController = navController, movieId = movieId, mediaType = mediaType)
       }
 
-      // Cast Screen
       composable(
-          route = "cast/{movieId}/{mediaType}",
+          route = "castcrew/{movieId}/{mediaType}/{screenType}",
           arguments =
               listOf(
                   navArgument("movieId") { type = NavType.IntType },
                   navArgument("mediaType") { type = NavType.StringType },
+                  navArgument("screenType") { type = NavType.StringType },
               ),
       ) { backStackEntry ->
-        val movieId = backStackEntry.arguments?.getInt("movieId") ?: 0
-        val mediaTypeString = backStackEntry.arguments?.getString("mediaType") ?: "MOVIE"
-        val mediaType = MediaType.valueOf(mediaTypeString)
+        val movieId = backStackEntry.arguments?.getInt("movieId") ?: return@composable
+        val mediaTypeString = backStackEntry.arguments?.getString("mediaType") ?: return@composable
+        val screenTypeString =
+            backStackEntry.arguments?.getString("screenType") ?: return@composable
 
-        CastScreen(navController = navController, movieId = movieId, mediaType = mediaType)
+        val mediaType = MediaType.valueOf(mediaTypeString.uppercase())
+        val screenType = CastCrewScreenType.valueOf(screenTypeString.uppercase())
+
+        CastCrewScreen(
+            navController = navController,
+            movieId = movieId,
+            mediaType = mediaType,
+            screenType = screenType,
+        )
       }
 
-      // Crew Screen
-      composable(
-          route = "crew/{movieId}/{mediaType}",
-          arguments =
-              listOf(
-                  navArgument("movieId") { type = NavType.IntType },
-                  navArgument("mediaType") { type = NavType.StringType },
-              ),
-      ) { backStackEntry ->
-        val movieId = backStackEntry.arguments?.getInt("movieId") ?: 0
-        val mediaTypeString = backStackEntry.arguments?.getString("mediaType") ?: "MOVIE"
-        val mediaType = MediaType.valueOf(mediaTypeString)
-
-        CrewScreen(navController = navController, movieId = movieId, mediaType = mediaType)
-      }
-      // ADD THIS - Category Screen
+      // Category Screen
       composable(
           route = "category/{genreId}/{genreName}",
           arguments =
@@ -99,7 +118,6 @@ fun NavGraph() {
       }
     }
 
-    // Bottom bar overlays on top
     FloatingBottomBar(
         navController = navController,
         modifier = Modifier.align(Alignment.BottomCenter),

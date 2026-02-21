@@ -58,7 +58,7 @@ fun ModernTopBar(
                   shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
               )
               .padding(horizontal = 20.dp)
-              .padding(top = 60.dp, bottom = 25.dp)
+              .padding(top = 50.dp, bottom = 25.dp)
   ) {
     AnimatedVisibility(
         visible = !isSearchExpanded,

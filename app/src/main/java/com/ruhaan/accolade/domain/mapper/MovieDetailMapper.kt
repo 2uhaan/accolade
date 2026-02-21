@@ -14,7 +14,7 @@ object MovieDetailMapper {
     val director = credits.crew.firstOrNull { it.job == "Director" }?.name ?: "N/A"
     val runtime = formatMovieRuntime(detailDto.runtime)
     val trailer = extractTrailer(videos)
-    val genres = detailDto.genres.map { Genre(it.id, it.name) } // ADD THIS
+    val genres = detailDto.genres.map { Genre(it.id, it.name) }
 
     return MovieDetail(
         id = detailDto.id,
@@ -29,7 +29,7 @@ object MovieDetailMapper {
         synopsis = detailDto.overview ?: "No synopsis available",
         rating = (detailDto.voteAverage * 10).roundToInt(),
         trailer = trailer,
-        genres = genres, // ADD THIS
+        genres = genres,
     )
   }
 
@@ -41,7 +41,7 @@ object MovieDetailMapper {
     val showrunner = detailDto.createdBy.firstOrNull()?.name ?: "N/A"
     val runtime = formatTvRuntime(detailDto.episodeRunTime)
     val trailer = extractTrailer(videos)
-    val genres = detailDto.genres.map { Genre(it.id, it.name) } // ADD THIS
+    val genres = detailDto.genres.map { Genre(it.id, it.name) }
 
     return MovieDetail(
         id = detailDto.id,
@@ -56,12 +56,13 @@ object MovieDetailMapper {
         synopsis = detailDto.overview ?: "No synopsis available",
         rating = (detailDto.voteAverage * 10).roundToInt(),
         trailer = trailer,
-        genres = genres, // ADD THIS
+        genres = genres,
     )
   }
 
   fun mapCast(credits: CreditsResponse): List<CastMember> {
-    return credits.cast.take(10).map { dto ->
+    // return credits.cast.take(10).map
+    return credits.cast.map { dto ->
       CastMember(
           id = dto.id,
           name = dto.name,
@@ -84,18 +85,48 @@ object MovieDetailMapper {
             "Editor",
         )
 
+    val jobPriority =
+        mapOf(
+            "Director" to 1,
+            "Writer" to 2,
+            "Screenplay" to 3,
+            "Producer" to 4,
+            "Executive Producer" to 5,
+            "Director of Photography" to 6,
+            "Editor" to 7,
+        )
+
     return credits.crew
-        .take(10)
         .filter { it.department in keyDepartments || it.job in keyJobs }
-        .distinctBy { it.id } // Remove duplicates (same person, different roles)
-        .map { dto ->
+        .groupBy { it.id }
+        .map { (_, crewList) ->
+          val allJobs = crewList.map { it.job }.distinct().sortedBy { jobPriority[it] ?: 999 }
+
+          val jobs =
+              if (allJobs.size <= 2) {
+                allJobs.joinToString(", ")
+              } else {
+                "${allJobs.take(2).joinToString(", ")}..."
+              }
+
+          val primaryJob =
+              crewList.map { it.job }.minByOrNull { jobPriority[it] ?: 999 } ?: crewList.first().job
+
           CrewMember(
-              id = dto.id,
-              name = dto.name,
-              job = dto.job,
-              profilePath = dto.profilePath?.let { "https://image.tmdb.org/t/p/w185$it" },
+              id = crewList.first().id,
+              name = crewList.first().name,
+              job = jobs,
+              profilePath =
+                  crewList.first().profilePath?.let { "https://image.tmdb.org/t/p/w185$it" },
           )
         }
+        .sortedWith(
+            compareBy(
+                { member -> member.job.split(", ").minOfOrNull { jobPriority[it] ?: 999 } ?: 999 },
+                { it.name },
+            )
+        )
+    //        .take(10) // Take top 10 after sorting
   }
 
   private fun formatMovieRuntime(minutes: Int?): String {
@@ -112,7 +143,6 @@ object MovieDetailMapper {
   }
 
   private fun extractTrailer(videos: VideosResponse): Trailer? {
-    // Priority: Official trailers from YouTube
     val trailer =
         videos.results.firstOrNull { it.site == "YouTube" && it.type == "Trailer" && it.official }
             ?: videos.results.firstOrNull { it.site == "YouTube" && it.type == "Trailer" }

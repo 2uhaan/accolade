@@ -6,40 +6,65 @@ import com.ruhaan.accolade.domain.mapper.MovieMapper
 import com.ruhaan.accolade.domain.mapper.SearchMapper
 import com.ruhaan.accolade.domain.model.*
 import com.ruhaan.accolade.domain.repository.MovieRepository
+import com.ruhaan.accolade.presentation.home.components.EditorsPicks
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 @Singleton
 class MovieRepositoryImpl @Inject constructor(private val apiService: TmdbApiService) :
     MovieRepository {
 
   override suspend fun getTrendingMovies(): List<Movie> {
-    val response =
-        apiService.getTrendingMovies(
-            region = "IN",
-            sortBy = "popularity.desc",
-        )
-    return MovieMapper.mapFromDtoList(response.results).take(6)
+    val response = apiService.getTrendingAll()
+    return MovieMapper.mapFromTrendingList(response.results).take(6)
   }
 
-  override suspend fun getTheatreMovies(): List<Movie> {
-    val response =
-        apiService.getNowPlayingMovies(
-            sortBy = "popularity.desc",
-            region = "IN",
-            releaseType = "3",
-        )
-    return MovieMapper.mapFromDtoList(response.results).take(6)
-  }
-
-  override suspend fun getStreamingMovies(): List<Movie> {
-    val response =
-        apiService.getNowPlayingMovies(
-            sortBy = "popularity",
-            region = "IN",
-            releaseType = "4",
-        )
-    return MovieMapper.mapFromDtoList(response.results).take(6)
+  override suspend fun getEditorsPicks(): List<Movie> = coroutineScope {
+    EditorsPicks.items
+        .map { curated ->
+          async {
+            runCatching {
+                  when (curated.mediaType) {
+                    MediaType.MOVIE -> {
+                      val dto = apiService.getMovieDetail(curated.tmdbId)
+                      Movie(
+                          id = dto.id,
+                          title = dto.title,
+                          year = dto.releaseDate?.take(4) ?: "N/A",
+                          posterPath = "https://image.tmdb.org/t/p/w500${dto.posterPath ?: ""}",
+                          backdropPath =
+                              if (dto.backdropPath != null)
+                                  "https://image.tmdb.org/t/p/w780${dto.backdropPath}"
+                              else null,
+                          releaseDate = dto.releaseDate ?: "",
+                          mediaType = MediaType.MOVIE,
+                      )
+                    }
+                    MediaType.TV_SHOW -> {
+                      val dto = apiService.getTvShowDetail(curated.tmdbId)
+                      Movie(
+                          id = dto.id,
+                          title = dto.name,
+                          year = dto.firstAirDate?.take(4) ?: "N/A",
+                          posterPath = "https://image.tmdb.org/t/p/w500${dto.posterPath ?: ""}",
+                          backdropPath =
+                              if (dto.backdropPath != null)
+                                  "https://image.tmdb.org/t/p/w780${dto.backdropPath}"
+                              else null,
+                          releaseDate = dto.firstAirDate ?: "",
+                          mediaType = MediaType.TV_SHOW,
+                      )
+                    }
+                  }
+                }
+                .getOrNull()
+          }
+        }
+        .awaitAll()
+        .filterNotNull()
   }
 
   override suspend fun getUpcomingMovies(page: Int): List<Movie> {
@@ -51,23 +76,20 @@ class MovieRepositoryImpl @Inject constructor(private val apiService: TmdbApiSer
             page = page,
             minDate = today,
             sortBy = "release_date.asc",
-            region = "IN",
-            releaseType = "3|4", // Theatrical + Digital releases
+            region = "IN", // Content available in India
+            releaseType = "3|4|6", // Theatrical + Digital + Streaming
+            minVoteCount = 10, // Filter out obscure content
         )
 
     return MovieMapper.mapFromDtoList(response.results)
   }
 
   override suspend fun getUpcomingTvShows(page: Int): List<Movie> {
-    val today =
-        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-
     val response =
-        apiService.getAiringTodayTvShows(
+        apiService.getUpcomingTvShows(
             page = page,
-            minDate = today,
-            sortBy = "first_air_date.asc",
-            originCountry = "IN", // Just India
+            region = "IN", // Content available in India
+            minVoteCount = 10, // Filter out obscure content
         )
 
     return MovieMapper.mapFromTvShowDtoList(response.results)

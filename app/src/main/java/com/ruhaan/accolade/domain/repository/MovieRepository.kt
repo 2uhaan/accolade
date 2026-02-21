@@ -11,9 +11,7 @@ interface MovieRepository {
   // Home screen methods
   suspend fun getTrendingMovies(): List<Movie>
 
-  suspend fun getTheatreMovies(): List<Movie>
-
-  suspend fun getStreamingMovies(): List<Movie>
+  suspend fun getEditorsPicks(): List<Movie>
 
   // Schedule screen methods
   suspend fun getUpcomingMovies(page: Int = 1): List<Movie>

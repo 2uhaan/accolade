@@ -18,20 +18,10 @@ interface TmdbApiService {
   ): SearchResponse
 
   // Home Screen
-  @GET("trending/movie/week")
-  suspend fun getTrendingMovies(
+  @GET("trending/all/day")
+  suspend fun getTrendingAll(
       @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
-      @Query("region") region: String,
-      @Query("sort_by") sortBy: String,
-  ): MovieListResponse
-
-  @GET("movie/now_playing")
-  suspend fun getNowPlayingMovies(
-      @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
-      @Query("region") region: String,
-      @Query("sort_by") sortBy: String,
-      @Query("with_release_type") releaseType: String,
-  ): MovieListResponse
+  ): TrendingResponse
 
   @GET("discover/movie")
   suspend fun getUpcomingMovies(
@@ -41,15 +31,15 @@ interface TmdbApiService {
       @Query("sort_by") sortBy: String,
       @Query("region") region: String,
       @Query("with_release_type") releaseType: String,
+      @Query("vote_count.gte") minVoteCount: Int,
   ): MovieListResponse
 
-  @GET("discover/tv")
-  suspend fun getAiringTodayTvShows(
+  @GET("tv/on_the_air")
+  suspend fun getUpcomingTvShows(
       @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
       @Query("page") page: Int,
-      @Query("first_air_date.gte") minDate: String,
-      @Query("sort_by") sortBy: String,
-      @Query("with_origin_country") originCountry: String,
+      @Query("region") region: String,
+      @Query("vote_count.gte") minVoteCount: Int,
   ): TvShowListResponse
 
   // Content Detailed Page
