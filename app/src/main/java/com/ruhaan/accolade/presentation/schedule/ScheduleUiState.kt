@@ -8,9 +8,10 @@ data class ScheduleUiState(
     val error: String? = null,
     val isLoadingMore: Boolean = false,
     val hasMorePages: Boolean = true,
-    val currentPage: Int = 1,
     val upcomingMovies: List<DateGroupedMovies> = emptyList(),
-    val selectedFilter: ContentFilter = ContentFilter.BOTH, // NEW
+    val selectedFilter: ContentFilter = ContentFilter.BOTH,
+    val moviesLoaded: Int = 0,
+    val tvShowsLoaded: Int = 0,
 )
 
 data class DateGroupedMovies(
@@ -19,7 +20,7 @@ data class DateGroupedMovies(
 )
 
 enum class ContentFilter {
-    MOVIES,
-    TV_SHOWS,
-    BOTH
+  MOVIES,
+  TV_SHOWS,
+  BOTH,
 }

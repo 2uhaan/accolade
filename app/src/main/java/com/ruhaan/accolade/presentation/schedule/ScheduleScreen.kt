@@ -1,5 +1,11 @@
 package com.ruhaan.accolade.presentation.schedule
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,248 +21,207 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavHostController
+import androidx.navigation.NavController
+import com.ruhaan.accolade.R
 import com.ruhaan.accolade.domain.model.Movie
-import com.ruhaan.accolade.presentation.home.components.FloatingBottomBar
-import com.ruhaan.accolade.presentation.home.components.MovieCard
+import com.ruhaan.accolade.presentation.common.AppSpacing
+import com.ruhaan.accolade.presentation.common.MainNavigationScreen
+import com.ruhaan.accolade.presentation.common.MovieCard
+import com.ruhaan.accolade.presentation.common.ShimmerMovieCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(
-    navController: NavHostController,
+    navController: NavController,
     viewModel: ScheduleViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsState()
-  var showFilterMenu by remember { mutableStateOf(false) }
 
-  Box(
-      modifier =
-          Modifier.fillMaxSize()
-              .background(
-                  brush =
-                      Brush.verticalGradient(
-                          colors =
-                              listOf(
-                                  MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                  MaterialTheme.colorScheme.background,
-                              )
-                      )
-              )
-  ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 140.dp, top = 20.dp),
-    ) {
-      // Page title + filter
-      item {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Text(
-              text = "Schedule",
-              style = MaterialTheme.typography.headlineLarge,
-              fontWeight = FontWeight.Bold,
-              modifier = Modifier.weight(1f),
-          )
-
-          // Filter dropdown
-          Box {
-            TextButton(
-                onClick = { showFilterMenu = true },
-                colors =
-                    ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    ),
-            ) {
-              Text(
-                  text =
-                      when (uiState.selectedFilter) {
-                        ContentFilter.MOVIES -> "Movies"
-                        ContentFilter.TV_SHOWS -> "TV Shows"
-                        ContentFilter.BOTH -> "All"
-                      },
-                  style = MaterialTheme.typography.bodyLarge,
-                  fontWeight = FontWeight.SemiBold,
-              )
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("▼", fontSize = 12.sp)
-            }
-
-            DropdownMenu(expanded = showFilterMenu, onDismissRequest = { showFilterMenu = false }) {
-              DropdownMenuItem(
-                  text = { Text("Movies Only") },
-                  onClick = {
-                    viewModel.updateFilter(ContentFilter.MOVIES)
-                    showFilterMenu = false
-                  },
-                  leadingIcon = {
-                    if (uiState.selectedFilter == ContentFilter.MOVIES) {
-                      Icon(
-                          imageVector = Icons.Default.Check,
-                          contentDescription = null,
-                          tint = MaterialTheme.colorScheme.primary,
-                      )
-                    }
-                  },
-              )
-              DropdownMenuItem(
-                  text = { Text("TV Shows Only") },
-                  onClick = {
-                    viewModel.updateFilter(ContentFilter.TV_SHOWS)
-                    showFilterMenu = false
-                  },
-                  leadingIcon = {
-                    if (uiState.selectedFilter == ContentFilter.TV_SHOWS) {
-                      Icon(
-                          imageVector = Icons.Default.Check,
-                          contentDescription = null,
-                          tint = MaterialTheme.colorScheme.primary,
-                      )
-                    }
-                  },
-              )
-              DropdownMenuItem(
-                  text = { Text("All Content") },
-                  onClick = {
-                    viewModel.updateFilter(ContentFilter.BOTH)
-                    showFilterMenu = false
-                  },
-                  leadingIcon = {
-                    if (uiState.selectedFilter == ContentFilter.BOTH) {
-                      Icon(
-                          imageVector = Icons.Default.Check,
-                          contentDescription = null,
-                          tint = MaterialTheme.colorScheme.primary,
-                      )
-                    }
-                  },
-              )
-            }
+  MainNavigationScreen(navController = navController) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
+      LazyColumn(
+          modifier = Modifier.fillMaxSize(),
+          contentPadding =
+              PaddingValues(
+                  top = AppSpacing.contentPaddingTop,
+                  bottom = AppSpacing.contentPaddingBottom,
+              ),
+      ) {
+        item {
+          Row(
+              modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
+              verticalAlignment = Alignment.CenterVertically,
+          ) {
+            ScheduleFilterChip(
+                label = "All",
+                selected = uiState.selectedFilter == ContentFilter.BOTH,
+                onClick = { viewModel.updateFilter(ContentFilter.BOTH) },
+            )
+            ScheduleFilterChip(
+                label = "Movies",
+                selected = uiState.selectedFilter == ContentFilter.MOVIES,
+                onClick = { viewModel.updateFilter(ContentFilter.MOVIES) },
+            )
+            ScheduleFilterChip(
+                label = "Shows",
+                selected = uiState.selectedFilter == ContentFilter.TV_SHOWS,
+                onClick = { viewModel.updateFilter(ContentFilter.TV_SHOWS) },
+            )
           }
         }
-      }
-
-      when {
-        uiState.isLoading -> {
-          item {
-            Box(
-                modifier = Modifier.fillMaxWidth().height(200.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-              CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
+        when {
+          uiState.isLoading -> {
+            items(4) { ShimmerDateSection() }
           }
-        }
 
-        uiState.error != null -> {
-          item {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-              Column(
-                  modifier = Modifier.padding(24.dp),
-                  horizontalAlignment = Alignment.CenterHorizontally,
+          uiState.error != null -> {
+            item {
+              Card(
+                  modifier = Modifier.fillMaxWidth().padding(24.dp),
+                  shape = RoundedCornerShape(16.dp),
               ) {
-                Text(
-                    "Network Error",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    uiState.error ?: "Unknown error",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { viewModel.refreshContent() },
-                    shape = RoundedCornerShape(12.dp),
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                  Text("Retry")
+                  Text(
+                      "Network Error",
+                      style = MaterialTheme.typography.headlineSmall,
+                      fontWeight = FontWeight.Bold,
+                  )
+                  Spacer(modifier = Modifier.height(8.dp))
+                  Text(
+                      uiState.error ?: "Unknown error",
+                      style = MaterialTheme.typography.bodyMedium,
+                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                  )
+                  Spacer(modifier = Modifier.height(16.dp))
+                  Button(
+                      onClick = { viewModel.refreshContent() },
+                      shape = RoundedCornerShape(12.dp),
+                  ) {
+                    Text("Retry")
+                  }
                 }
               }
             }
           }
-        }
 
-        uiState.upcomingMovies.isEmpty() -> {
-          item {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-              Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "No upcoming releases",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = { viewModel.refreshContent() }) { Text("Refresh") }
+          uiState.upcomingMovies.isEmpty() -> {
+            item {
+              Box(
+                  modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                  contentAlignment = Alignment.Center,
+              ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                  Text(
+                      text = "No upcoming releases",
+                      style = MaterialTheme.typography.titleMedium,
+                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                  )
+                  Spacer(modifier = Modifier.height(8.dp))
+                  TextButton(onClick = { viewModel.refreshContent() }) { Text("Refresh") }
+                }
               }
             }
           }
-        }
 
-        else -> {
-          // Date-grouped sections
-          items(uiState.upcomingMovies) { dateGroup ->
-            DateSection(
-                dateGroup = dateGroup,
-                onMovieClick = { movie -> println("📅 SCHEDULE Clicked: ${movie.title}") },
-            )
-          }
+          else -> {
+            items(uiState.upcomingMovies) { dateGroup ->
+              DateSection(
+                  dateGroup = dateGroup,
+                  onMovieClick = { clickedMovie ->
+                    navController.navigate(
+                        "detail/${clickedMovie.id}/${clickedMovie.mediaType.name}"
+                    )
+                  },
+              )
+            }
 
-          // Load More button - only show if has more pages
-          if (uiState.hasMorePages) {
-            item {
-              Button(
-                  onClick = { viewModel.loadMoreContent() },
-                  modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-                  shape = RoundedCornerShape(12.dp),
-                  enabled = !uiState.isLoadingMore,
-              ) {
-                if (uiState.isLoadingMore) {
-                  CircularProgressIndicator(
-                      modifier = Modifier.size(16.dp),
-                      strokeWidth = 2.dp,
-                      color = MaterialTheme.colorScheme.onPrimary,
-                  )
-                  Spacer(modifier = Modifier.width(12.dp))
-                  Text("Loading...")
-                } else {
-                  Text("Load More")
+            if (uiState.hasMorePages) {
+              item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                  // Show loaded counts based on filter
+                  when (uiState.selectedFilter) {
+                    ContentFilter.BOTH -> {
+                      Text(
+                          text = "${uiState.moviesLoaded} movies • ${uiState.tvShowsLoaded} shows",
+                          style = MaterialTheme.typography.bodySmall,
+                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                      )
+                    }
+                    ContentFilter.MOVIES -> {
+                      Text(
+                          text = "${uiState.moviesLoaded} movies loaded",
+                          style = MaterialTheme.typography.bodySmall,
+                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                      )
+                    }
+                    ContentFilter.TV_SHOWS -> {
+                      Text(
+                          text = "${uiState.tvShowsLoaded} shows loaded",
+                          style = MaterialTheme.typography.bodySmall,
+                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                      )
+                    }
+                  }
+
+                  // Existing Load More Button (unchanged)
+                  Surface(
+                      onClick = { if (!uiState.isLoadingMore) viewModel.loadMoreContent() },
+                      shape = CircleShape,
+                      color = Color(0xFF2196F3),
+                      shadowElevation = 6.dp,
+                      modifier = Modifier.size(52.dp),
+                  ) {
+                    Box(contentAlignment = Alignment.Center) {
+                      if (uiState.isLoadingMore) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.5.dp,
+                            color = Color.White,
+                        )
+                      } else {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_arrow_down),
+                            contentDescription = "Load more",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp),
+                        )
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -264,20 +229,44 @@ fun ScheduleScreen(
         }
       }
     }
+  }
+}
 
-    FloatingBottomBar(
-        navController = navController,
-        modifier = Modifier.align(Alignment.BottomCenter),
-    )
+@Composable
+fun ScheduleFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+  Surface(
+      onClick = onClick,
+      shape = RoundedCornerShape(50),
+      color = if (selected) Color(0xFF2196F3) else Color(0xFFEEF0F4),
+      shadowElevation = if (selected) 2.dp else 0.dp,
+      modifier = Modifier.height(36.dp),
+  ) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.padding(horizontal = 20.dp),
+    ) {
+      Text(
+          text = label,
+          style = MaterialTheme.typography.bodyMedium,
+          fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+          color = if (selected) Color.White else Color(0xFF6B7280),
+      )
+    }
   }
 }
 
 @Composable
 fun DateSection(dateGroup: DateGroupedMovies, onMovieClick: (Movie) -> Unit) {
-  Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-      // LEFT - Date
-      Column(modifier = Modifier.width(70.dp).padding(top = 4.dp)) {
+  Column(modifier = Modifier.fillMaxWidth()) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+      Column(modifier = Modifier.width(36.dp).padding(top = 4.dp)) {
         val dateParts = dateGroup.dateFormatted.split(" ")
         Text(
             text = dateParts[0], // Day
@@ -291,9 +280,6 @@ fun DateSection(dateGroup: DateGroupedMovies, onMovieClick: (Movie) -> Unit) {
         )
       }
 
-      Spacer(modifier = Modifier.width(16.dp))
-
-      // RIGHT - Movies in 2-column grid
       Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         dateGroup.movies.chunked(2).forEach { rowMovies ->
           Row(
@@ -313,10 +299,76 @@ fun DateSection(dateGroup: DateGroupedMovies, onMovieClick: (Movie) -> Unit) {
       }
     }
 
-    // Divider
-    HorizontalDivider(
-        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-    )
+    Spacer(modifier = Modifier.height(16.dp))
   }
+}
+
+@Composable
+fun ShimmerDateSection() {
+  Row(
+      modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 28.dp),
+      verticalAlignment = Alignment.Top,
+  ) {
+    Column(
+        modifier = Modifier.width(56.dp),
+        horizontalAlignment = Alignment.Start,
+    ) {
+      ShimmerBox(width = 28.dp, height = 11.dp) // Weekday
+      Spacer(modifier = Modifier.height(4.dp))
+      ShimmerBox(width = 42.dp, height = 42.dp) // Day number
+      Spacer(modifier = Modifier.height(4.dp))
+      ShimmerBox(width = 28.dp, height = 11.dp) // Month
+    }
+
+    Spacer(modifier = Modifier.width(12.dp))
+
+    Column(
+        modifier = Modifier.weight(1f),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+      repeat(2) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+          Box(modifier = Modifier.weight(1f)) { ShimmerMovieCard() }
+          Box(modifier = Modifier.weight(1f)) { ShimmerMovieCard() }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+fun ShimmerBox(width: Dp, height: Dp) {
+  val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+  val translateAnim by
+      infiniteTransition.animateFloat(
+          initialValue = 0f,
+          targetValue = 1000f,
+          animationSpec =
+              infiniteRepeatable(
+                  animation = tween(durationMillis = 1200, easing = LinearEasing),
+                  repeatMode = RepeatMode.Restart,
+              ),
+          label = "translate",
+      )
+  val shimmerColors =
+      listOf(
+          Color(0xFFE5E7EB),
+          Color(0xFFF3F4F6),
+          Color(0xFFE5E7EB),
+      )
+  val brush =
+      remember(translateAnim) {
+        Brush.linearGradient(
+            colors = shimmerColors,
+            start = Offset(translateAnim - 1000f, translateAnim - 1000f),
+            end = Offset(translateAnim, translateAnim),
+        )
+      }
+  Box(
+      modifier =
+          Modifier.width(width).height(height).clip(RoundedCornerShape(4.dp)).background(brush)
+  )
 }
