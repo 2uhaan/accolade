@@ -8,13 +8,15 @@ data class MovieDetail(
     val backdropPath: String?,
     val country: String,
     val language: String,
-    val directorOrShowrunner: String,
+    val directors: List<DirectorInfo>,
     val runtime: String, // formatted as "2h 30m" or "42 min avg"
     val synopsis: String,
     val rating: Int, // percentage (0-100)
     val trailer: Trailer?,
     val genres: List<Genre> = emptyList(), // ADD THIS
 )
+
+data class DirectorInfo(val id: Int, val name: String)
 
 data class Trailer(
     val key: String, // YouTube video ID

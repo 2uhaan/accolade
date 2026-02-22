@@ -1,6 +1,7 @@
 package com.ruhaan.accolade.presentation.detail.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -58,6 +60,7 @@ fun CastCrewScreen(
     movieId: Int,
     mediaType: MediaType,
     screenType: CastCrewScreenType,
+    onPersonClick: (Int) -> Unit,
     viewModel: MovieDetailViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.castCrewState.collectAsState()
@@ -114,6 +117,7 @@ fun CastCrewScreen(
                 getName = { it.name },
                 getProfilePath = { it.profilePath },
                 getSubtitle = { it.character },
+                onItemClick = { index -> onPersonClick(state.cast[index].id) },
             )
           }
         }
@@ -124,6 +128,7 @@ fun CastCrewScreen(
                 getName = { it.name },
                 getProfilePath = { it.profilePath },
                 getSubtitle = { it.job },
+                onItemClick = { index -> onPersonClick(state.crew[index].id) },
             )
           }
         }
@@ -138,6 +143,7 @@ private fun <T> PersonList(
     getName: (T) -> String,
     getProfilePath: (T) -> String?,
     getSubtitle: (T) -> String,
+    onItemClick: (Int) -> Unit,
 ) {
   LazyVerticalGrid(
       columns = GridCells.Fixed(2),
@@ -152,22 +158,28 @@ private fun <T> PersonList(
       horizontalArrangement = Arrangement.spacedBy(16.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
   ) {
-    items(items) { item ->
+    itemsIndexed(items) { index, item ->
       PersonItem(
           name = getName(item),
           profilePath = getProfilePath(item),
           subtitle = getSubtitle(item),
+          onClick = { onItemClick(index) },
       )
     }
   }
 }
 
 @Composable
-private fun PersonItem(name: String, profilePath: String?, subtitle: String) {
+private fun PersonItem(
+    name: String,
+    profilePath: String?,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
   val context = LocalContext.current
 
   Column(
-      modifier = Modifier.fillMaxWidth(),
+      modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {

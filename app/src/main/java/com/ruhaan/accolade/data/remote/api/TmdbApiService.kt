@@ -95,4 +95,28 @@ interface TmdbApiService {
       @Query("sort_by") sortBy: String = "popularity.desc",
       @Query("page") page: Int = 1,
   ): TvShowListResponse
+
+  @GET("movie/{movie_id}/reviews")
+  suspend fun getMovieReviews(
+      @Path("movie_id") movieId: Int,
+      @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
+  ): ReviewsResponse
+
+  @GET("tv/{tv_id}/reviews")
+  suspend fun getTvShowReviews(
+      @Path("tv_id") tvId: Int,
+      @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
+  ): ReviewsResponse
+
+  @GET("person/{person_id}")
+  suspend fun getPersonDetail(
+      @Path("person_id") personId: Int,
+      @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
+  ): PersonDetailDto
+
+  @GET("person/{person_id}/combined_credits")
+  suspend fun getPersonCredits(
+      @Path("person_id") personId: Int,
+      @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
+  ): PersonCreditsResponse
 }

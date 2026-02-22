@@ -150,4 +150,42 @@ class MovieRepositoryImpl @Inject constructor(private val apiService: TmdbApiSer
     val response = apiService.searchMulti(query = query, page = 1)
     return SearchMapper.mapSearchResults(response.results).take(20) // Limit to 20 results
   }
+
+  override suspend fun getReviews(id: Int, mediaType: MediaType): List<Review> {
+    val response =
+        when (mediaType) {
+          MediaType.MOVIE -> apiService.getMovieReviews(id)
+          MediaType.TV_SHOW -> apiService.getTvShowReviews(id)
+        }
+    return MovieDetailMapper.mapReviews(response)
+  }
+
+  override suspend fun getPersonDetail(personId: Int): Person {
+    val dto = apiService.getPersonDetail(personId)
+    return Person(
+        id = dto.id,
+        name = dto.name,
+        biography = dto.biography?.takeIf { it.isNotBlank() },
+        profilePath = dto.profilePath?.let { "https://image.tmdb.org/t/p/w500$it" },
+        birthday = dto.birthday,
+        placeOfBirth = dto.placeOfBirth,
+    )
+  }
+
+  override suspend fun getPersonFilmography(personId: Int): List<Movie> {
+    val response = apiService.getPersonCredits(personId)
+    return response.cast
+        .filter { it.posterPath != null }
+        .distinctBy { it.id }
+        .sortedByDescending { it.releaseDate ?: it.firstAirDate ?: "" }
+        .map { credit ->
+          Movie(
+              id = credit.id,
+              title = credit.title ?: credit.name ?: "Unknown",
+              posterPath = "https://image.tmdb.org/t/p/w500${credit.posterPath}",
+              mediaType = if (credit.mediaType == "tv") MediaType.TV_SHOW else MediaType.MOVIE,
+              year = (credit.releaseDate ?: credit.firstAirDate ?: "").take(4),
+          )
+        }
+  }
 }

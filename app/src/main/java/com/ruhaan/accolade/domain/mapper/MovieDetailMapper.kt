@@ -11,7 +11,8 @@ object MovieDetailMapper {
       credits: CreditsResponse,
       videos: VideosResponse,
   ): MovieDetail {
-    val director = credits.crew.firstOrNull { it.job == "Director" }?.name ?: "N/A"
+    val directors =
+        credits.crew.filter { it.job == "Director" }.map { DirectorInfo(it.id, it.name) }
     val runtime = formatMovieRuntime(detailDto.runtime)
     val trailer = extractTrailer(videos)
     val genres = detailDto.genres.map { Genre(it.id, it.name) }
@@ -24,7 +25,7 @@ object MovieDetailMapper {
         backdropPath = detailDto.backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" },
         country = detailDto.productionCountries.firstOrNull()?.name ?: "N/A",
         language = detailDto.spokenLanguages.firstOrNull()?.englishName ?: "N/A",
-        directorOrShowrunner = director,
+        directors = directors,
         runtime = runtime,
         synopsis = detailDto.overview ?: "No synopsis available",
         rating = (detailDto.voteAverage * 10).roundToInt(),
@@ -38,7 +39,7 @@ object MovieDetailMapper {
       credits: CreditsResponse,
       videos: VideosResponse,
   ): MovieDetail {
-    val showrunner = detailDto.createdBy.firstOrNull()?.name ?: "N/A"
+    val directors = detailDto.createdBy.map { DirectorInfo(it.id, it.name) }
     val runtime = formatTvRuntime(detailDto.episodeRunTime)
     val trailer = extractTrailer(videos)
     val genres = detailDto.genres.map { Genre(it.id, it.name) }
@@ -51,7 +52,7 @@ object MovieDetailMapper {
         backdropPath = detailDto.backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" },
         country = detailDto.productionCountries.firstOrNull()?.name ?: "N/A",
         language = detailDto.spokenLanguages.firstOrNull()?.englishName ?: "N/A",
-        directorOrShowrunner = showrunner,
+        directors = directors,
         runtime = runtime,
         synopsis = detailDto.overview ?: "No synopsis available",
         rating = (detailDto.voteAverage * 10).roundToInt(),
@@ -154,5 +155,46 @@ object MovieDetailMapper {
           thumbnailUrl = "https://img.youtube.com/vi/${it.key}/maxresdefault.jpg",
       )
     }
+  }
+
+  fun mapReviews(response: ReviewsResponse): List<Review> {
+    return response.results
+        .map { dto ->
+          val rating =
+              dto.authorDetails.rating?.let { raw ->
+                (raw / 10.0 * 100).roundToInt().coerceIn(0, 100)
+              }
+
+          val avatarPath =
+              dto.authorDetails.avatarPath?.let { path ->
+                // TMDB sometimes prefixes avatar paths with /https://... for Gravatar
+                if (path.startsWith("/https://") || path.startsWith("/http://")) {
+                  path.removePrefix("/")
+                } else {
+                  "https://image.tmdb.org/t/p/w185$path"
+                }
+              }
+
+          val formattedDate =
+              try {
+                val inputFormat =
+                    java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                val outputFormat = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.US)
+                val date = inputFormat.parse(dto.createdAt)
+                outputFormat.format(date ?: return@map null)
+              } catch (_: Exception) {
+                dto.createdAt.take(10) // fallback: raw "yyyy-MM-dd"
+              }
+
+          Review(
+              id = dto.id,
+              author = dto.authorDetails.name.ifBlank { dto.author },
+              content = dto.content,
+              rating = rating,
+              avatarPath = avatarPath,
+              createdAt = formattedDate,
+          )
+        }
+        .filterNotNull()
   }
 }

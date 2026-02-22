@@ -17,6 +17,7 @@ import com.ruhaan.accolade.presentation.common.NavigationAnimations
 import com.ruhaan.accolade.presentation.detail.DetailScreen
 import com.ruhaan.accolade.presentation.detail.components.CastCrewScreen
 import com.ruhaan.accolade.presentation.detail.components.CastCrewScreenType
+import com.ruhaan.accolade.presentation.filmography.FilmographyScreen
 import com.ruhaan.accolade.presentation.home.HomeScreen
 import com.ruhaan.accolade.presentation.home.components.FloatingBottomBar
 import com.ruhaan.accolade.presentation.schedule.ScheduleScreen
@@ -99,7 +100,13 @@ fun NavGraph() {
             movieId = movieId,
             mediaType = mediaType,
             screenType = screenType,
+            onPersonClick = { personId -> navController.navigate("filmography/$personId") },
         )
+      }
+
+      composable("filmography/{personId}") { backStackEntry ->
+        val personId = backStackEntry.arguments?.getString("personId")?.toInt() ?: return@composable
+        FilmographyScreen(navController = navController, personId = personId)
       }
 
       // Category Screen

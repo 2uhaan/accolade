@@ -83,3 +83,24 @@ data class VideoDto(
     val type: String, // "Trailer", "Teaser", etc.
     val official: Boolean,
 )
+
+data class ReviewsResponse(
+    val id: Int,
+    val results: List<ReviewDto>,
+    @SerializedName("total_results") val totalResults: Int,
+)
+
+data class ReviewDto(
+    val id: String,
+    val author: String,
+    val content: String,
+    @SerializedName("author_details") val authorDetails: AuthorDetails,
+    @SerializedName("created_at") val createdAt: String,
+)
+
+data class AuthorDetails(
+    val name: String,
+    val username: String,
+    @SerializedName("avatar_path") val avatarPath: String?,
+    val rating: Double?, // TMDB scale: 1–10, nullable
+)

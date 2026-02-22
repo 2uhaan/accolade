@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -43,18 +44,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -62,9 +66,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.ruhaan.accolade.domain.model.DirectorInfo
 import com.ruhaan.accolade.domain.model.Genre
 import com.ruhaan.accolade.domain.model.MediaType
 import com.ruhaan.accolade.domain.model.MovieDetail
+import com.ruhaan.accolade.domain.model.Review
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,137 +80,547 @@ fun DetailScreen(
     mediaType: MediaType,
     viewModel: MovieDetailViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.detailState.collectAsState()
+  val uiState by viewModel.detailState.collectAsState()
 
-    LaunchedEffect(movieId, mediaType) { viewModel.loadDetail(movieId, mediaType) }
+  val reviewsState by viewModel.reviewsState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
+  LaunchedEffect(movieId, mediaType) {
+    viewModel.loadDetail(movieId, mediaType)
+    viewModel.loadReviews(movieId, mediaType) // add this
+  }
+
+  Scaffold(
+      topBar = {
+        TopAppBar(
+            title = {},
+            navigationIcon = {
+              IconButton(onClick = { navController.navigateUp() }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+              }
+            },
+            colors =
+                TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
                 ),
-            )
+        )
+      }
+  ) { paddingValues ->
+    Box(modifier = Modifier.fillMaxSize().padding(top = paddingValues.calculateTopPadding())) {
+      when (val state = uiState) {
+        is DetailUiState.Loading -> {
+          CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }
-    ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(top = paddingValues.calculateTopPadding())) {
-            when (val state = uiState) {
-                is DetailUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
 
-                is DetailUiState.Error -> {
-                    ErrorView(
-                        message = state.message,
-                        onRetry = { viewModel.loadDetail(movieId, mediaType) },
-                        modifier = Modifier.align(Alignment.Center),
-                    )
-                }
-
-                is DetailUiState.Success -> {
-                    DetailContent(
-                        detail = state.detail,
-                        onCastClick = {
-                            navController.navigate(
-                                "castcrew/${state.detail.id}/${state.detail.mediaType.name}/cast"
-                            )
-                        },
-                        onCrewClick = {
-                            navController.navigate(
-                                "castcrew/${state.detail.id}/${state.detail.mediaType.name}/crew"
-                            )
-                        },
-                        onGenreClick = { genre ->
-                            navController.navigate("category/${genre.id}/${genre.name}")
-                        },
-                    )
-                }
-            }
+        is DetailUiState.Error -> {
+          ErrorView(
+              message = state.message,
+              onRetry = { viewModel.loadDetail(movieId, mediaType) },
+              modifier = Modifier.align(Alignment.Center),
+          )
         }
+
+        is DetailUiState.Success -> {
+          DetailContent(
+              detail = state.detail,
+              reviewsState = reviewsState,
+              onCastClick = {
+                navController.navigate(
+                    "castcrew/${state.detail.id}/${state.detail.mediaType.name}/cast"
+                )
+              },
+              onCrewClick = {
+                navController.navigate(
+                    "castcrew/${state.detail.id}/${state.detail.mediaType.name}/crew"
+                )
+              },
+              onGenreClick = { genre ->
+                navController.navigate("category/${genre.id}/${genre.name}")
+              },
+              onDirectorClick = { personId -> navController.navigate("filmography/$personId") },
+          )
+        }
+      }
     }
+  }
 }
 
 @Composable
 private fun DetailContent(
     detail: MovieDetail,
+    reviewsState: ReviewsUiState,
     onCastClick: () -> Unit,
     onCrewClick: () -> Unit,
     onGenreClick: (Genre) -> Unit,
+    onDirectorClick: (Int) -> Unit,
 ) {
-    val scrollState = rememberScrollState()
+  val scrollState = rememberScrollState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(bottom = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // ── Poster ──────────────────────────────────────────────────
-        PosterSection(
-            posterPath = detail.posterPath,
-            modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
-        )
+  Column(
+      modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(bottom = 32.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+  ) {
+    // ── Banner + Poster overlap ──────────────────────────────────
+    BannerWithPoster(
+        backdropPath = detail.backdropPath,
+        posterPath = detail.posterPath,
+    )
 
-        // ── Title ───────────────────────────────────────────────────
-        Text(
-            text = detail.title,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 24.dp),
-        )
+    Spacer(modifier = Modifier.height(12.dp))
 
-        Spacer(modifier = Modifier.height(8.dp))
+    // ── Title ───────────────────────────────────────────────────
+    Text(
+        text = detail.title,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onBackground,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(horizontal = 24.dp),
+    )
 
-        // ── Meta row  (Country · Language · TYPE) ───────────────────
-        MetaRow(detail = detail)
+    Spacer(modifier = Modifier.height(8.dp))
 
-        Spacer(modifier = Modifier.height(12.dp))
+    // ── Meta row  (Country · Language · TYPE) ───────────────────
+    MetaRow(detail = detail)
 
-        // ── Genre chips ─────────────────────────────────────────────
-        if (detail.genres.isNotEmpty()) {
-            GenreChipsSection(genres = detail.genres, onGenreClick = onGenreClick)
-        }
+    Spacer(modifier = Modifier.height(12.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // ── Circular rating ─────────────────────────────────────────
-        CircularRatingSection(rating = detail.rating)
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        // ── About / Synopsis ────────────────────────────────────────
-        AboutSection(
-            synopsis = detail.synopsis,
-            modifier = Modifier.padding(horizontal = 20.dp),
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // ── Cast & Crew cards ───────────────────────────────────────
-        CastCrewCards(
-            onCastClick = onCastClick,
-            onCrewClick = onCrewClick,
-            modifier = Modifier.padding(horizontal = 20.dp),
-        )
-
-        // ── Trailer ─────────────────────────────────────────────────
-        detail.trailer?.let { trailer ->
-            Spacer(modifier = Modifier.height(28.dp))
-            TrailerSection(
-                trailer = trailer,
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-        }
+    if (detail.directors.isNotEmpty()) {
+      Spacer(modifier = Modifier.height(8.dp))
+      DirectedBySection(
+          directors = detail.directors,
+          mediaType = detail.mediaType,
+          onDirectorClick = onDirectorClick,
+      )
     }
+
+    // ── Genre chips ─────────────────────────────────────────────
+    if (detail.genres.isNotEmpty()) {
+      GenreChipsSection(genres = detail.genres, onGenreClick = onGenreClick)
+    }
+
+    Spacer(modifier = Modifier.height(24.dp))
+
+    // ── Circular rating ─────────────────────────────────────────
+    CircularRatingSection(rating = detail.rating)
+
+    Spacer(modifier = Modifier.height(28.dp))
+
+    // ── About / Synopsis ────────────────────────────────────────
+    AboutSection(
+        synopsis = detail.synopsis,
+        modifier = Modifier.padding(horizontal = 20.dp),
+    )
+
+    Spacer(modifier = Modifier.height(24.dp))
+
+    // ── Cast & Crew cards ───────────────────────────────────────
+    CastCrewCards(
+        onCastClick = onCastClick,
+        onCrewClick = onCrewClick,
+        modifier = Modifier.padding(horizontal = 20.dp),
+    )
+
+    // ── Trailer ─────────────────────────────────────────────────
+    detail.trailer?.let { trailer ->
+      Spacer(modifier = Modifier.height(28.dp))
+      TrailerSection(
+          trailer = trailer,
+          modifier = Modifier.padding(horizontal = 20.dp),
+      )
+    }
+    Spacer(modifier = Modifier.height(28.dp))
+    ReviewsSection(
+        reviewsState = reviewsState,
+        modifier = Modifier.padding(horizontal = 20.dp),
+    )
+  }
+}
+
+@Composable
+private fun DirectedBySection(
+    directors: List<DirectorInfo>,
+    mediaType: MediaType,
+    onDirectorClick: (Int) -> Unit,
+) {
+  val label = if (mediaType == MediaType.MOVIE) "Directed by" else "Created by"
+  val primary = directors.first()
+  val overflow = directors.size - 1
+  var expanded by remember { mutableStateOf(false) }
+
+  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+      Text(
+          text = "$label ",
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+      )
+      Text(
+          text = primary.name,
+          style = MaterialTheme.typography.bodyMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.clickable { onDirectorClick(primary.id) },
+      )
+      if (overflow > 0) {
+        Text(
+            text = if (expanded) "  show less ▲" else "  +$overflow ▼",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+            modifier = Modifier.clickable { expanded = !expanded },
+        )
+      }
+    }
+
+    if (expanded) {
+      Spacer(modifier = Modifier.height(6.dp))
+      directors.drop(1).forEach { director ->
+        Text(
+            text = director.name,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.clickable { onDirectorClick(director.id) }.padding(vertical = 2.dp),
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun BannerWithPoster(
+    backdropPath: String?,
+    posterPath: String,
+) {
+  val context = LocalContext.current
+  val backgroundColor = MaterialTheme.colorScheme.background
+
+  Box(
+      modifier = Modifier.fillMaxWidth().height(320.dp), // banner 220dp + poster overlap of ~100dp
+  ) {
+    // ── Backdrop banner ──────────────────────────────────────────
+    if (backdropPath != null) {
+      SubcomposeAsyncImage(
+          model = ImageRequest.Builder(context).data(backdropPath).crossfade(true).build(),
+          contentDescription = "Banner",
+          modifier = Modifier.fillMaxWidth().height(220.dp),
+          contentScale = ContentScale.Crop,
+          loading = {
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+          },
+          error = {
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+          },
+      )
+
+      // Gradient scrim — fades banner into background color
+      Box(
+          modifier =
+              Modifier.fillMaxWidth()
+                  .height(220.dp)
+                  .background(
+                      brush =
+                          Brush.verticalGradient(
+                              colors =
+                                  listOf(
+                                      Color.Transparent,
+                                      backgroundColor.copy(alpha = 0.6f),
+                                      backgroundColor,
+                                  ),
+                              startY = 80f, // gradient starts 80px from top
+                          )
+                  )
+      )
+    } else {
+      // No backdrop — just a surface placeholder so poster still sits correctly
+      Box(
+          modifier =
+              Modifier.fillMaxWidth()
+                  .height(220.dp)
+                  .background(MaterialTheme.colorScheme.surfaceVariant)
+      )
+    }
+
+    // ── Poster card — centered, overlapping the banner bottom ────
+    SubcomposeAsyncImage(
+        model = ImageRequest.Builder(context).data(posterPath).crossfade(true).build(),
+        contentDescription = "Movie Poster",
+        modifier =
+            Modifier.width(140.dp)
+                .height(210.dp)
+                .align(Alignment.BottomCenter)
+                .shadow(16.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp)),
+        contentScale = ContentScale.Crop,
+        loading = {
+          Box(
+              modifier =
+                  Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+              contentAlignment = Alignment.Center,
+          ) {
+            CircularProgressIndicator()
+          }
+        },
+        error = {
+          Box(
+              modifier =
+                  Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+              contentAlignment = Alignment.Center,
+          ) {
+            Text("No image")
+          }
+        },
+    )
+  }
+}
+
+@Composable
+private fun BannerSection(backdropPath: String?) {
+  val context = LocalContext.current
+  val backgroundColor = MaterialTheme.colorScheme.background
+
+  Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+    if (backdropPath != null) {
+      SubcomposeAsyncImage(
+          model = ImageRequest.Builder(context).data(backdropPath).crossfade(true).build(),
+          contentDescription = "Banner",
+          modifier = Modifier.fillMaxSize(),
+          contentScale = ContentScale.Crop,
+          loading = {
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+          },
+          error = {
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+          },
+      )
+
+      Box(
+          modifier =
+              Modifier.fillMaxSize()
+                  .background(
+                      brush =
+                          Brush.verticalGradient(
+                              colors =
+                                  listOf(
+                                      Color.Transparent,
+                                      backgroundColor.copy(alpha = 0.6f),
+                                      backgroundColor,
+                                  ),
+                              startY = 80f,
+                          )
+                  )
+      )
+    } else {
+      Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))
+    }
+  }
+}
+
+@Composable
+private fun ReviewsSection(
+    reviewsState: ReviewsUiState,
+    modifier: Modifier = Modifier,
+) {
+  // Section header
+  Row(modifier = modifier.fillMaxWidth()) {
+    Box(
+        modifier =
+            Modifier.width(4.dp)
+                .height(20.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.primary)
+                .align(Alignment.CenterVertically)
+    )
+    Spacer(modifier = Modifier.width(10.dp))
+    Text(
+        text = "AUDIENCE REVIEWS",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.ExtraBold,
+        color = MaterialTheme.colorScheme.onBackground,
+        letterSpacing = 1.sp,
+    )
+  }
+
+  Spacer(modifier = Modifier.height(12.dp))
+
+  when (reviewsState) {
+    is ReviewsUiState.Loading -> {
+      Box(
+          modifier = modifier.fillMaxWidth().height(80.dp),
+          contentAlignment = Alignment.Center,
+      ) {
+        CircularProgressIndicator()
+      }
+    }
+    is ReviewsUiState.Empty -> {
+      Text(
+          text = "No reviews yet.",
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+          modifier = modifier,
+      )
+    }
+    is ReviewsUiState.Error -> {
+      Text(
+          text = "Could not load reviews.",
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+          modifier = modifier,
+      )
+    }
+    is ReviewsUiState.Success -> {
+      ReviewsList(reviews = reviewsState.reviews, modifier = modifier)
+    }
+  }
+}
+
+@Composable
+private fun ReviewsList(reviews: List<Review>, modifier: Modifier = Modifier) {
+  var expanded by remember { mutableStateOf(false) }
+  val visibleReviews = if (expanded) reviews else reviews.take(2)
+
+  Column(
+      modifier = modifier.fillMaxWidth(),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+  ) {
+    visibleReviews.forEach { review -> ReviewCard(review = review) }
+
+    if (reviews.size > 2) {
+      Text(
+          text = if (expanded) "Show less ▲" else "Read more (${reviews.size - 2} more) ▼",
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.primary,
+          letterSpacing = 0.5.sp,
+          modifier =
+              Modifier.align(Alignment.CenterHorizontally)
+                  .clickable { expanded = !expanded }
+                  .padding(vertical = 4.dp),
+      )
+    }
+  }
+}
+
+@Composable
+private fun ReviewCard(review: Review) {
+  var contentExpanded by remember { mutableStateOf(false) }
+  val isLong = review.content.length > 300
+
+  OutlinedCard(
+      shape = RoundedCornerShape(12.dp),
+      modifier = Modifier.fillMaxWidth(),
+  ) {
+    Column(modifier = Modifier.padding(14.dp)) {
+
+      // Author row
+      Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        // Avatar
+        SubcomposeAsyncImage(
+            model = review.avatarPath,
+            contentDescription = "Avatar",
+            modifier =
+                Modifier.size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentScale = ContentScale.Crop,
+            error = {
+              Box(
+                  modifier =
+                      Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primaryContainer),
+                  contentAlignment = Alignment.Center,
+              ) {
+                Text(
+                    text = review.author.take(1).uppercase(),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+              }
+            },
+        )
+
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+              text = review.author,
+              style = MaterialTheme.typography.labelLarge,
+              fontWeight = FontWeight.SemiBold,
+              color = MaterialTheme.colorScheme.onSurface,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+          )
+          Text(
+              text = review.createdAt,
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+          )
+        }
+
+        // Rating badge (only if reviewer rated)
+        review.rating?.let { rating ->
+          val badgeColor =
+              when {
+                rating >= 70 -> Color(0xFF4CAF50)
+                rating >= 50 -> Color(0xFFFFC107)
+                else -> Color(0xFFF44336)
+              }
+          Box(
+              modifier =
+                  Modifier.background(badgeColor.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                      .padding(horizontal = 8.dp, vertical = 4.dp),
+              contentAlignment = Alignment.Center,
+          ) {
+            Text(
+                text = "$rating%",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = badgeColor,
+            )
+          }
+        }
+      }
+
+      Spacer(modifier = Modifier.height(10.dp))
+
+      // Review content with inline expand
+      Text(
+          text = review.content,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+          lineHeight = 20.sp,
+          maxLines = if (contentExpanded) Int.MAX_VALUE else 4,
+          overflow = TextOverflow.Ellipsis,
+      )
+
+      if (isLong) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = if (contentExpanded) "Show less" else "Show full review",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.clickable { contentExpanded = !contentExpanded },
+        )
+      }
+    }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -213,34 +629,35 @@ private fun DetailContent(
 
 @Composable
 private fun PosterSection(posterPath: String, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
+  val context = LocalContext.current
 
-    SubcomposeAsyncImage(
-        model = ImageRequest.Builder(context).data(posterPath).crossfade(true).build(),
-        contentDescription = "Movie Poster",
-        modifier = modifier
-            .fillMaxWidth()
-            .height(340.dp)
-            .shadow(12.dp, RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp)),
-        contentScale = ContentScale.Crop,
-        loading = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) { CircularProgressIndicator() }
-        },
-        error = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) { Text("Failed to load poster") }
-        },
-    )
+  SubcomposeAsyncImage(
+      model = ImageRequest.Builder(context).data(posterPath).crossfade(true).build(),
+      contentDescription = "Movie Poster",
+      modifier =
+          modifier
+              .fillMaxWidth()
+              .height(340.dp)
+              .shadow(12.dp, RoundedCornerShape(16.dp))
+              .clip(RoundedCornerShape(16.dp)),
+      contentScale = ContentScale.Crop,
+      loading = {
+        Box(
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+          CircularProgressIndicator()
+        }
+      },
+      error = {
+        Box(
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+          Text("Failed to load poster")
+        }
+      },
+  )
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -249,40 +666,40 @@ private fun PosterSection(posterPath: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun MetaRow(detail: MovieDetail) {
-    val typeLabel = if (detail.mediaType == MediaType.MOVIE) "MOVIE" else "TV SHOW"
+  val typeLabel = if (detail.mediaType == MediaType.MOVIE) "MOVIE" else "TV SHOW"
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = detail.country,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-        )
-        DotSeparator()
-        Text(
-            text = detail.language,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-        )
-        DotSeparator()
-        Text(
-            text = typeLabel,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
+  Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.Center,
+  ) {
+    Text(
+        text = detail.country,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+    )
+    DotSeparator()
+    Text(
+        text = detail.language,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+    )
+    DotSeparator()
+    Text(
+        text = typeLabel,
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+    )
+  }
 }
 
 @Composable
 private fun DotSeparator() {
-    Text(
-        text = " · ",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
-    )
+  Text(
+      text = " · ",
+      style = MaterialTheme.typography.bodyMedium,
+      color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+  )
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -292,33 +709,35 @@ private fun DotSeparator() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GenreChipsSection(genres: List<Genre>, onGenreClick: (Genre) -> Unit) {
-    FlowRow(
-        modifier = Modifier.padding(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        genres.forEach { genre ->
-            SuggestionChip(
-                onClick = { onGenreClick(genre) },
-                label = {
-                    Text(
-                        text = genre.name.uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.5.sp,
-                    )
-                },
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-                border = SuggestionChipDefaults.suggestionChipBorder(
-                    enabled = true,
-                    borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                ),
+  FlowRow(
+      modifier = Modifier.padding(horizontal = 20.dp),
+      horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    genres.forEach { genre ->
+      SuggestionChip(
+          onClick = { onGenreClick(genre) },
+          label = {
+            Text(
+                text = genre.name.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp,
             )
-        }
+          },
+          colors =
+              SuggestionChipDefaults.suggestionChipColors(
+                  containerColor = MaterialTheme.colorScheme.primaryContainer,
+                  labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+              ),
+          border =
+              SuggestionChipDefaults.suggestionChipBorder(
+                  enabled = true,
+                  borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+              ),
+      )
     }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -327,55 +746,57 @@ private fun GenreChipsSection(genres: List<Genre>, onGenreClick: (Genre) -> Unit
 
 @Composable
 private fun CircularRatingSection(rating: Int) {
-    var animatedProgress by remember { mutableFloatStateOf(0f) }
-    val progress by animateFloatAsState(
-        targetValue = rating / 100f,
-        animationSpec = tween(durationMillis = 1000),
-        label = "ratingAnim",
-    )
+  var animatedProgress by remember { mutableFloatStateOf(0f) }
+  val progress by
+      animateFloatAsState(
+          targetValue = rating / 100f,
+          animationSpec = tween(durationMillis = 1000),
+          label = "ratingAnim",
+      )
 
-    LaunchedEffect(rating) { animatedProgress = rating / 100f }
+  LaunchedEffect(rating) { animatedProgress = rating / 100f }
 
-    val ringColor = when {
+  val ringColor =
+      when {
         rating >= 70 -> Color(0xFF4CAF50)
         rating >= 50 -> Color(0xFFFFC107)
         else -> Color(0xFFF44336)
-    }
+      }
 
-    Box(contentAlignment = Alignment.Center) {
-        // Background ring
-        CircularProgressIndicator(
-            progress = { 1f },
-            modifier = Modifier.size(120.dp),
-            color = ringColor.copy(alpha = 0.15f),
-            strokeWidth = 8.dp,
-            strokeCap = StrokeCap.Round,
-        )
-        // Foreground ring
-        CircularProgressIndicator(
-            progress = { progress },
-            modifier = Modifier.size(120.dp),
-            color = ringColor,
-            strokeWidth = 8.dp,
-            strokeCap = StrokeCap.Round,
-        )
-        // Center text
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "$rating%",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Text(
-                text = "MATCH SCORE",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                letterSpacing = 0.8.sp,
-            )
-        }
+  Box(contentAlignment = Alignment.Center) {
+    // Background ring
+    CircularProgressIndicator(
+        progress = { 1f },
+        modifier = Modifier.size(120.dp),
+        color = ringColor.copy(alpha = 0.15f),
+        strokeWidth = 8.dp,
+        strokeCap = StrokeCap.Round,
+    )
+    // Foreground ring
+    CircularProgressIndicator(
+        progress = { progress },
+        modifier = Modifier.size(120.dp),
+        color = ringColor,
+        strokeWidth = 8.dp,
+        strokeCap = StrokeCap.Round,
+    )
+    // Center text
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+      Text(
+          text = "$rating%",
+          style = MaterialTheme.typography.titleLarge,
+          fontWeight = FontWeight.ExtraBold,
+          color = MaterialTheme.colorScheme.onBackground,
+      )
+      Text(
+          text = "MATCH SCORE",
+          style = MaterialTheme.typography.labelSmall,
+          fontWeight = FontWeight.Medium,
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+          letterSpacing = 0.8.sp,
+      )
     }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -384,35 +805,35 @@ private fun CircularRatingSection(rating: Int) {
 
 @Composable
 private fun AboutSection(synopsis: String, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth()) {
-        // Left accent border
-        Box(
-            modifier = Modifier
-                .width(4.dp)
+  Row(modifier = modifier.fillMaxWidth()) {
+    // Left accent border
+    Box(
+        modifier =
+            Modifier.width(4.dp)
                 .height(20.dp)
                 .clip(RoundedCornerShape(2.dp))
                 .background(MaterialTheme.colorScheme.primary)
                 .align(Alignment.CenterVertically)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = "ABOUT",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onBackground,
-            letterSpacing = 1.sp,
-        )
-    }
-
-    Spacer(modifier = Modifier.height(10.dp))
-
-    Text(
-        text = synopsis,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
-        lineHeight = 22.sp,
-        modifier = modifier,
     )
+    Spacer(modifier = Modifier.width(10.dp))
+    Text(
+        text = "ABOUT",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.ExtraBold,
+        color = MaterialTheme.colorScheme.onBackground,
+        letterSpacing = 1.sp,
+    )
+  }
+
+  Spacer(modifier = Modifier.height(10.dp))
+
+  Text(
+      text = synopsis,
+      style = MaterialTheme.typography.bodyMedium,
+      color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.75f),
+      lineHeight = 22.sp,
+      modifier = modifier,
+  )
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -425,53 +846,51 @@ private fun CastCrewCards(
     onCrewClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        CastCrewCard(
-            label = "CAST",
-            onClick = onCastClick,
-            modifier = Modifier.weight(1f),
-        )
-        CastCrewCard(
-            label = "CREW",
-            onClick = onCrewClick,
-            modifier = Modifier.weight(1f),
-        )
-    }
+  Row(
+      modifier = modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+  ) {
+    CastCrewCard(
+        label = "CAST",
+        onClick = onCastClick,
+        modifier = Modifier.weight(1f),
+    )
+    CastCrewCard(
+        label = "CREW",
+        onClick = onCrewClick,
+        modifier = Modifier.weight(1f),
+    )
+  }
 }
 
 @Composable
 private fun CastCrewCard(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    OutlinedCard(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+  OutlinedCard(
+      onClick = onClick,
+      modifier = modifier,
+      shape = RoundedCornerShape(12.dp),
+  ) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
+      Icon(
+          imageVector = Icons.Default.Person,
+          contentDescription = null,
+          modifier = Modifier.size(20.dp),
+          tint = MaterialTheme.colorScheme.primary,
+      )
+      Spacer(modifier = Modifier.width(8.dp))
+      Text(
+          text = label,
+          style = MaterialTheme.typography.labelLarge,
+          fontWeight = FontWeight.Bold,
+          letterSpacing = 1.sp,
+          color = MaterialTheme.colorScheme.onSurface,
+      )
     }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -483,112 +902,113 @@ private fun TrailerSection(
     trailer: com.ruhaan.accolade.domain.model.Trailer,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
+  val context = LocalContext.current
 
-    // Header row with "WATCH TRAILER" and "ALL CLIPS"
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(20.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.primary)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = "WATCH TRAILER",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 1.sp,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-        }
-        Text(
-            text = "ALL CLIPS",
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            letterSpacing = 0.5.sp,
-            modifier = Modifier.clickable { /* navigate to clips */ },
-        )
+  // Header row with "WATCH TRAILER" and "ALL CLIPS"
+  Row(
+      modifier = modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Box(
+          modifier =
+              Modifier.width(4.dp)
+                  .height(20.dp)
+                  .clip(RoundedCornerShape(2.dp))
+                  .background(MaterialTheme.colorScheme.primary)
+      )
+      Spacer(modifier = Modifier.width(10.dp))
+      Text(
+          text = "WATCH TRAILER",
+          style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.ExtraBold,
+          letterSpacing = 1.sp,
+          color = MaterialTheme.colorScheme.onBackground,
+      )
     }
+    Text(
+        text = "ALL CLIPS",
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        letterSpacing = 0.5.sp,
+        modifier = Modifier.clickable { /* navigate to clips */ },
+    )
+  }
 
-    Spacer(modifier = Modifier.height(12.dp))
+  Spacer(modifier = Modifier.height(12.dp))
 
-    // Thumbnail + play overlay
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .shadow(6.dp, RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
-            .clickable {
-                val intent = Intent(
-                    Intent.ACTION_VIEW,
-                    "https://www.youtube.com/watch?v=${trailer.key}".toUri(),
-                )
+  // Thumbnail + play overlay
+  Box(
+      modifier =
+          modifier
+              .fillMaxWidth()
+              .height(200.dp)
+              .shadow(6.dp, RoundedCornerShape(16.dp))
+              .clip(RoundedCornerShape(16.dp))
+              .clickable {
+                val intent =
+                    Intent(
+                        Intent.ACTION_VIEW,
+                        "https://www.youtube.com/watch?v=${trailer.key}".toUri(),
+                    )
                 context.startActivity(intent)
-            }
-    ) {
-        SubcomposeAsyncImage(
-            model = ImageRequest.Builder(context).data(trailer.thumbnailUrl).crossfade(true).build(),
-            contentDescription = "Trailer Thumbnail",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            loading = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center,
-                ) { CircularProgressIndicator() }
-            },
-        )
+              }
+  ) {
+    SubcomposeAsyncImage(
+        model = ImageRequest.Builder(context).data(trailer.thumbnailUrl).crossfade(true).build(),
+        contentDescription = "Trailer Thumbnail",
+        modifier = Modifier.fillMaxSize(),
+        contentScale = ContentScale.Crop,
+        loading = {
+          Box(
+              modifier =
+                  Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+              contentAlignment = Alignment.Center,
+          ) {
+            CircularProgressIndicator()
+          }
+        },
+    )
 
-        // Scrim
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.35f)),
-        )
+    // Scrim
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)),
+    )
 
-        // Play button
-        Box(
-            modifier = Modifier
-                .size(56.dp)
+    // Play button
+    Box(
+        modifier =
+            Modifier.size(56.dp)
                 .align(Alignment.Center)
                 .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(50)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = "Play Trailer",
-                modifier = Modifier.size(34.dp),
-                tint = Color.Black,
-            )
-        }
+        contentAlignment = Alignment.Center,
+    ) {
+      Icon(
+          imageVector = Icons.Default.PlayArrow,
+          contentDescription = "Play Trailer",
+          modifier = Modifier.size(34.dp),
+          tint = Color.Black,
+      )
+    }
 
-        // Clip title label at bottom
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
+    // Clip title label at bottom
+    Box(
+        modifier =
+            Modifier.fillMaxWidth()
                 .align(Alignment.BottomStart)
                 .background(Color.Black.copy(alpha = 0.55f))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
-        ) {
-            Text(
-                text = trailer.name,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
-                fontWeight = FontWeight.Medium,
-            )
-        }
+    ) {
+      Text(
+          text = trailer.name,
+          style = MaterialTheme.typography.bodySmall,
+          color = Color.White,
+          fontWeight = FontWeight.Medium,
+      )
     }
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -597,22 +1017,22 @@ private fun TrailerSection(
 
 @Composable
 fun ErrorView(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = "Error",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.error,
-        )
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-        )
-        Button(onClick = onRetry) { Text("Retry") }
-    }
+  Column(
+      modifier = modifier.padding(16.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(16.dp),
+  ) {
+    Text(
+        text = "Error",
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.error,
+    )
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+    )
+    Button(onClick = onRetry) { Text("Retry") }
+  }
 }
