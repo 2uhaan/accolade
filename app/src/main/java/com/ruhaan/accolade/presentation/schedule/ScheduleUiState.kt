@@ -3,21 +3,31 @@ package com.ruhaan.accolade.presentation.schedule
 import com.ruhaan.accolade.domain.model.Movie
 
 data class ScheduleUiState(
-    val isLoading: Boolean = false,
-    val isRefreshing: Boolean = false,
-    val error: String? = null,
-    val isLoadingMore: Boolean = false,
-    val hasMorePages: Boolean = true,
-    val upcomingMovies: List<DateGroupedMovies> = emptyList(),
+    val selectedTab: ScheduleTab = ScheduleTab.THIS_WEEK,
     val selectedFilter: ContentFilter = ContentFilter.BOTH,
-    val moviesLoaded: Int = 0,
-    val tvShowsLoaded: Int = 0,
+    val previous: TabState = TabState(),
+    val thisWeek: TabState = TabState(),
+    val upcoming: TabState = TabState(),
+)
+
+data class TabState(
+    val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
+    val error: String? = null,
+    val hasMorePages: Boolean = false,
+    val content: List<DateGroupedMovies> = emptyList(),
 )
 
 data class DateGroupedMovies(
-    val dateFormatted: String, // "12 Jan 2026"
+    val dateFormatted: String,
     val movies: List<Movie>,
 )
+
+enum class ScheduleTab {
+  PREVIOUS,
+  THIS_WEEK,
+  UPCOMING,
+}
 
 enum class ContentFilter {
   MOVIES,

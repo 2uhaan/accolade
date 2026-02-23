@@ -7,433 +7,299 @@ import com.ruhaan.accolade.domain.model.Movie
 import com.ruhaan.accolade.domain.repository.MovieRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
 import javax.inject.Inject
-import kotlin.collections.mapNotNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class ScheduleViewModel @Inject constructor(private val repository: MovieRepository) : ViewModel() {
+class ScheduleViewModel
+@Inject
+constructor(
+    private val repository: MovieRepository,
+) : ViewModel() {
 
-  private val _uiState = MutableStateFlow(ScheduleUiState(isLoading = true))
+  private val _uiState = MutableStateFlow(ScheduleUiState())
   val uiState: StateFlow<ScheduleUiState> = _uiState.asStateFlow()
 
-  private val allMovies = MutableStateFlow<List<Movie>>(emptyList())
-  private val allTvShows = MutableStateFlow<List<Movie>>(emptyList())
-  private var currentMoviePage = 1
-  private var currentTvShowPage = 1
+  // Raw data per tab
+  private val prevMovies = mutableListOf<Movie>()
+  private val prevTvShows = mutableListOf<Movie>()
+  private var prevMoviePage = 1
+  private var prevMovieTotalPages = 1
+  private var prevTvPage = 1
+  private var prevTvTotalPages = 1
 
-  // Independent exhaustion tracking
-  private var moviesExhausted = false
-  private var tvShowsExhausted = false
+  private val weekMovies = mutableListOf<Movie>()
+  private val weekTvShows = mutableListOf<Movie>()
+  private var weekMoviePage = 1
+  private var weekMovieTotalPages = 1
+  private var weekTvPage = 1
+  private var weekTvTotalPages = 1
 
-  // Max pages limit to respect API limits
-  private val MAX_PAGES = 3
+  private val upcomingMovies = mutableListOf<Movie>()
+  private val upcomingTvShows = mutableListOf<Movie>()
+  private var upcomingMoviePage = 1
+  private var upcomingMovieTotalPages = 1
+  private var upcomingTvPage = 1
+  private var upcomingTvTotalPages = 1
 
   init {
-    loadInitialContent()
+    loadTab(ScheduleTab.THIS_WEEK)
+    loadTab(ScheduleTab.PREVIOUS)
+    loadTab(ScheduleTab.UPCOMING)
   }
 
-  fun refreshContent() {
-    currentMoviePage = 1
-    currentTvShowPage = 1
-    moviesExhausted = false
-    tvShowsExhausted = false
-    allMovies.value = emptyList()
-    allTvShows.value = emptyList()
-    _uiState.value = _uiState.value.copy(isRefreshing = true, error = null)
-    loadInitialContent()
-  }
-
-  fun loadMoreContent() {
-    if (
-        _uiState.value.isLoading ||
-            _uiState.value.isLoadingMore ||
-            (!hasMoreMovies() && !hasMoreTvShows())
-    )
-        return
-
-    // Increment only pages that aren't exhausted
-    val nextMoviePage = if (hasMoreMovies()) currentMoviePage + 1 else currentMoviePage
-    val nextTvShowPage = if (hasMoreTvShows()) currentTvShowPage + 1 else currentTvShowPage
-
-    if (nextMoviePage <= MAX_PAGES) currentMoviePage = nextMoviePage
-    if (nextTvShowPage <= MAX_PAGES) currentTvShowPage = nextTvShowPage
-
-    loadContent(isLoadMore = true)
+  fun selectTab(tab: ScheduleTab) {
+    _uiState.value = _uiState.value.copy(selectedTab = tab)
   }
 
   fun updateFilter(filter: ContentFilter) {
     _uiState.value = _uiState.value.copy(selectedFilter = filter)
-    applyFilterAndGroup()
+    // Regroup all tabs with new filter
+    updateTabContent(ScheduleTab.PREVIOUS)
+    updateTabContent(ScheduleTab.THIS_WEEK)
+    updateTabContent(ScheduleTab.UPCOMING)
   }
 
-  private fun hasMoreMovies(): Boolean {
-    return !moviesExhausted && currentMoviePage <= MAX_PAGES
+  fun loadMoreContent() {
+    val tab = _uiState.value.selectedTab
+    val tabState = getTabState(tab)
+    if (tabState.isLoading || tabState.isLoadingMore || !tabState.hasMorePages) return
+    loadTab(tab, isLoadMore = true)
   }
 
-  private fun hasMoreTvShows(): Boolean {
-    return !tvShowsExhausted && currentTvShowPage <= MAX_PAGES
+  fun refreshTab(tab: ScheduleTab) {
+    when (tab) {
+      ScheduleTab.PREVIOUS -> {
+        prevMovies.clear()
+        prevTvShows.clear()
+        prevMoviePage = 1
+        prevMovieTotalPages = 1
+        prevTvPage = 1
+        prevTvTotalPages = 1
+      }
+      ScheduleTab.THIS_WEEK -> {
+        weekMovies.clear()
+        weekTvShows.clear()
+        weekMoviePage = 1
+        weekMovieTotalPages = 1
+        weekTvPage = 1
+        weekTvTotalPages = 1
+      }
+      ScheduleTab.UPCOMING -> {
+        upcomingMovies.clear()
+        upcomingTvShows.clear()
+        upcomingMoviePage = 1
+        upcomingMovieTotalPages = 1
+        upcomingTvPage = 1
+        upcomingTvTotalPages = 1
+      }
+    }
+    loadTab(tab)
   }
 
-  private fun loadInitialContent() {
-    loadContent(isLoadMore = false)
-  }
-
-  private fun loadContent(isLoadMore: Boolean) {
+  private fun loadTab(tab: ScheduleTab, isLoadMore: Boolean = false) {
     viewModelScope.launch {
-      if (!isLoadMore) {
-        val isRefresh = _uiState.value.isRefreshing
-        _uiState.value =
-            _uiState.value.copy(isLoading = !isRefresh, isRefreshing = isRefresh, error = null)
-      } else {
-        _uiState.value = _uiState.value.copy(isLoadingMore = true)
+      val currentMoviePage = getCurrentMoviePage(tab)
+      val currentTvPage = getCurrentTvPage(tab)
+      val nextMoviePage = if (isLoadMore) currentMoviePage + 1 else currentMoviePage
+      val nextTvPage = if (isLoadMore) currentTvPage + 1 else currentTvPage
+      val canLoadMovies = nextMoviePage <= getMovieTotalPages(tab)
+      val canLoadTvShows = nextTvPage <= getTvTotalPages(tab)
+
+      Log.d(
+          "SCHEDULE",
+          "[$tab] loadMore=$isLoadMore movie=$nextMoviePage/${getMovieTotalPages(tab)} tv=$nextTvPage/${getTvTotalPages(tab)}",
+      )
+
+      setTabState(tab) {
+        it.copy(isLoading = !isLoadMore, isLoadingMore = isLoadMore, error = null)
       }
 
-      var moviesError: String? = null
-      var tvShowsError: String? = null
-      var newMovies = emptyList<Movie>()
-      var newTvShows = emptyList<Movie>()
-
-      // Fetch movies with independent error handling
-      if (hasMoreMovies() || !isLoadMore) {
-        try {
-          newMovies = repository.getUpcomingMovies(currentMoviePage)
+      try {
+        if (canLoadMovies) {
+          val result =
+              when (tab) {
+                ScheduleTab.PREVIOUS -> repository.getPreviousMovies(nextMoviePage)
+                ScheduleTab.THIS_WEEK -> repository.getThisWeekMovies(nextMoviePage)
+                ScheduleTab.UPCOMING -> repository.getUpcomingMovies(nextMoviePage)
+              }
+          getMovieList(tab).addAll(result.items)
+          setMoviePage(tab, result.currentPage, result.totalPages)
           Log.d(
-              "SCHEDULE_DEBUG",
-              "Fetched ${newMovies.size} movies from page $currentMoviePage",
+              "SCHEDULE",
+              "[$tab] movies fetched: ${result.items.size} | total=${getMovieList(tab).size}",
           )
+        }
 
-          // Check if movies are exhausted
-          if (newMovies.size < 20) {
-            moviesExhausted = true
-            Log.d("SCHEDULE_DEBUG", "Movies exhausted at page $currentMoviePage")
-          }
-        } catch (e: Exception) {
-          Log.e("SCHEDULE_ERROR", "Failed to load movies", e)
-          moviesError = e.message ?: "Failed to load movies"
-          moviesExhausted = true // Stop trying if API fails
+        if (canLoadTvShows) {
+          val result =
+              when (tab) {
+                ScheduleTab.PREVIOUS -> repository.getPreviousTvShows(nextTvPage)
+                ScheduleTab.THIS_WEEK -> repository.getThisWeekTvShows(nextTvPage)
+                ScheduleTab.UPCOMING -> repository.getUpcomingTvShows(nextTvPage)
+              }
+          getTvList(tab).addAll(result.items)
+          setTvPage(tab, result.currentPage, result.totalPages)
+          Log.d(
+              "SCHEDULE",
+              "[$tab] tv fetched: ${result.items.size} | total=${getTvList(tab).size}",
+          )
+        }
+
+        val hasMore =
+            getCurrentMoviePage(tab) < getMovieTotalPages(tab) ||
+                getCurrentTvPage(tab) < getTvTotalPages(tab)
+
+        setTabState(tab) {
+          it.copy(isLoading = false, isLoadingMore = false, hasMorePages = hasMore)
+        }
+        updateTabContent(tab)
+      } catch (e: Exception) {
+        Log.e("SCHEDULE", "[$tab] error: ${e.message}", e)
+        setTabState(tab) {
+          it.copy(isLoading = false, isLoadingMore = false, error = e.message ?: "Failed to load")
         }
       }
-
-      // Fetch TV shows with independent error handling
-      if (hasMoreTvShows() || !isLoadMore) {
-        try {
-          newTvShows = repository.getUpcomingTvShows(currentTvShowPage)
-          Log.d(
-              "SCHEDULE_DEBUG",
-              "Fetched ${newTvShows.size} TV shows from page $currentTvShowPage",
-          )
-
-          // Check if TV shows are exhausted
-          if (newTvShows.size < 20) {
-            tvShowsExhausted = true
-            Log.d("SCHEDULE_DEBUG", "TV shows exhausted at page $currentTvShowPage")
-          }
-        } catch (e: Exception) {
-          Log.e("SCHEDULE_ERROR", "Failed to load TV shows", e)
-          tvShowsError = e.message ?: "Failed to load TV shows"
-          tvShowsExhausted = true // Stop trying if API fails
-        }
-      }
-
-      // Update lists
-      if (isLoadMore) {
-        allMovies.value = allMovies.value + newMovies
-        allTvShows.value = allTvShows.value + newTvShows
-      } else {
-        allMovies.value = newMovies
-        allTvShows.value = newTvShows
-      }
-
-      // Combine errors if both failed
-      val combinedError =
-          when {
-            moviesError != null && tvShowsError != null -> "Failed to load content"
-            moviesError != null -> moviesError
-            tvShowsError != null -> tvShowsError
-            else -> null
-          }
-
-      // Only show error if BOTH failed on initial load, or if we got no data at all
-      val shouldShowError =
-          if (!isLoadMore) {
-            moviesError != null && tvShowsError != null
-          } else {
-            newMovies.isEmpty() &&
-                newTvShows.isEmpty() &&
-                (moviesError != null || tvShowsError != null)
-          }
-
-      _uiState.value =
-          _uiState.value.copy(
-              isLoading = false,
-              isRefreshing = false,
-              isLoadingMore = false,
-              hasMorePages = hasMoreMovies() || hasMoreTvShows(),
-              error = if (shouldShowError) combinedError else null,
-              moviesLoaded = allMovies.value.size,
-              tvShowsLoaded = allTvShows.value.size,
-          )
-
-      applyFilterAndGroup()
     }
   }
 
-  private fun applyFilterAndGroup() {
-    val currentFilter = _uiState.value.selectedFilter
-    Log.d(
-        "FILTER_DEBUG",
-        "Current filter: $currentFilter, Movies: ${allMovies.value.size}, TV: ${allTvShows.value.size}",
-    )
+  private fun updateTabContent(tab: ScheduleTab) {
+    val filter = _uiState.value.selectedFilter
+    val movies = getMovieList(tab).toList()
+    val tvShows = getTvList(tab).toList()
 
-    val filteredContent =
-        when (currentFilter) {
-          ContentFilter.MOVIES -> {
-            Log.d("FILTER_DEBUG", "Using MOVIES only")
-            allMovies.value
-          }
-          ContentFilter.TV_SHOWS -> {
-            Log.d("FILTER_DEBUG", "Using TV_SHOWS only")
-            allTvShows.value
-          }
-          ContentFilter.BOTH -> {
-            Log.d("FILTER_DEBUG", "Using BOTH")
-            (allMovies.value + allTvShows.value)
-          }
+    val filtered =
+        when (filter) {
+          ContentFilter.MOVIES -> movies
+          ContentFilter.TV_SHOWS -> tvShows
+          ContentFilter.BOTH -> movies + tvShows
         }
 
-    Log.d("FILTER_DEBUG", "Filtered content size: ${filteredContent.size}")
-    val groupedMovies = groupContentByDate(filteredContent)
-
-    _uiState.value = _uiState.value.copy(upcomingMovies = groupedMovies)
+    val reversed = tab == ScheduleTab.PREVIOUS
+    val grouped = groupByDate(filtered, reversed)
+    setTabState(tab) { it.copy(content = grouped) }
+    Log.d("SCHEDULE", "[$tab] filter=$filter grouped=${grouped.size} date groups")
   }
 
-  private fun groupContentByDate(content: List<Movie>): List<DateGroupedMovies> {
+  private fun groupByDate(content: List<Movie>, reversed: Boolean): List<DateGroupedMovies> {
     val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     val displayFormat = SimpleDateFormat("dd MMM yyyy", Locale.US)
 
-    val todayCalendar =
-        Calendar.getInstance().apply {
-          set(Calendar.HOUR_OF_DAY, 0)
-          set(Calendar.MINUTE, 0)
-          set(Calendar.SECOND, 0)
-          set(Calendar.MILLISECOND, 0)
-        }
-    val todayDate = todayCalendar.time
-
-    Log.d("DATE_FILTER", "Today is: ${displayFormat.format(todayDate)}")
-
-    return content
-        .mapNotNull { movie ->
-          if (
-              movie.releaseDate.isBlank() ||
-                  !movie.releaseDate.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))
-          ) {
-            return@mapNotNull null
-          }
-
-          try {
-            val releaseDate = inputFormat.parse(movie.releaseDate) ?: return@mapNotNull null
-
-            if (releaseDate.before(todayDate)) {
-              Log.d("DATE_FILTER", "❌ Filtered: ${movie.title} (${movie.releaseDate})")
-              return@mapNotNull null
+    val grouped =
+        content
+            .filter { it.releaseDate.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) }
+            .mapNotNull { movie ->
+              try {
+                val date = inputFormat.parse(movie.releaseDate) ?: return@mapNotNull null
+                Pair(date, movie)
+              } catch (_: Exception) {
+                null
+              }
+            }
+            .sortedBy { it.first }
+            .groupBy { (date, _) -> displayFormat.format(date) }
+            .map { (dateString, pairs) ->
+              DateGroupedMovies(dateFormatted = dateString, movies = pairs.map { it.second })
             }
 
-            Pair(releaseDate, movie)
-          } catch (e: Exception) {
-            Log.e("DATE_FILTER", "Parse error: ${movie.releaseDate}", e)
-            null
-          }
-        }
-        .sortedBy { it.first }
-        .groupBy { (date, _) -> displayFormat.format(date) }
-        .map { (dateString, pairs) ->
-          DateGroupedMovies(
-              dateFormatted = dateString,
-              movies = pairs.map { it.second },
-          )
+    return if (reversed) grouped.reversed() else grouped
+  }
+
+  // --- Helpers to access per-tab data cleanly ---
+
+  private fun getTabState(tab: ScheduleTab) =
+      when (tab) {
+        ScheduleTab.PREVIOUS -> _uiState.value.previous
+        ScheduleTab.THIS_WEEK -> _uiState.value.thisWeek
+        ScheduleTab.UPCOMING -> _uiState.value.upcoming
+      }
+
+  private fun setTabState(tab: ScheduleTab, update: (TabState) -> TabState) {
+    _uiState.value =
+        when (tab) {
+          ScheduleTab.PREVIOUS -> _uiState.value.copy(previous = update(_uiState.value.previous))
+          ScheduleTab.THIS_WEEK -> _uiState.value.copy(thisWeek = update(_uiState.value.thisWeek))
+          ScheduleTab.UPCOMING -> _uiState.value.copy(upcoming = update(_uiState.value.upcoming))
         }
   }
-}
 
-// @HiltViewModel
-// class ScheduleViewModel @Inject constructor(private val repository: MovieRepository) :
-// ViewModel() {
-//  private val _uiState = MutableStateFlow(ScheduleUiState(isLoading = true))
-//  val uiState: StateFlow<ScheduleUiState> = _uiState.asStateFlow()
-//
-//  private var allMovies = mutableListOf<DomainMovie>()
-//  private var allTvShows = mutableListOf<DomainMovie>()
-//  private var currentMoviePage = 1
-//  private var currentTvShowPage = 1
-//
-//  init {
-//    loadInitialContent()
-//  }
-//
-//  fun refreshContent() {
-//    currentMoviePage = 1
-//    currentTvShowPage = 1
-//    allMovies.clear()
-//    allTvShows.clear()
-//    loadInitialContent()
-//  }
-//
-//  fun loadMoreContent() {
-//    if (_uiState.value.isLoadingMore || !_uiState.value.hasMorePages) return
-//
-//    currentMoviePage++
-//    currentTvShowPage++
-//    loadContent(isLoadMore = true)
-//  }
-//
-//  fun updateFilter(filter: ContentFilter) {
-//    _uiState.value = _uiState.value.copy(selectedFilter = filter)
-//    applyFilterAndGroup()
-//  }
-//
-//  private fun loadInitialContent() {
-//    loadContent(isLoadMore = false)
-//  }
-//
-//  private fun loadContent(isLoadMore: Boolean) {
-//    viewModelScope.launch {
-//      try {
-//        if (!isLoadMore) {
-//          _uiState.value = _uiState.value.copy(isLoading = true, isRefreshing = false, error =
-// null)
-//        } else {
-//          _uiState.value = _uiState.value.copy(isLoadingMore = true)
-//        }
-//
-//        val newMovies = repository.getUpcomingMovies(currentMoviePage)
-//        val newTvShows = repository.getUpcomingTvShows(currentTvShowPage)
-//
-//        Log.d(
-//            "SCHEDULE_DEBUG",
-//            "Fetched ${newMovies.size} movies from page $currentMoviePage",
-//        )
-//        Log.d(
-//            "SCHEDULE_DEBUG",
-//            "Fetched ${newTvShows.size} TV shows from page $currentTvShowPage",
-//        )
-//
-//        if (isLoadMore) {
-//          allMovies.addAll(newMovies)
-//          allTvShows.addAll(newTvShows)
-//        } else {
-//          allMovies.clear()
-//          allMovies.addAll(newMovies)
-//          allTvShows.clear()
-//          allTvShows.addAll(newTvShows)
-//        }
-//
-//        val hasMoreMovies = newMovies.size >= 20
-//        val hasMoreTvShows = newTvShows.size >= 20
-//        val hasMore = hasMoreMovies || hasMoreTvShows
-//
-//        _uiState.value =
-//            _uiState.value.copy(
-//                isLoading = false,
-//                isRefreshing = false,
-//                isLoadingMore = false,
-//                hasMorePages = hasMore,
-//            )
-//
-//        applyFilterAndGroup()
-//      } catch (e: Exception) {
-//        Log.e("SCHEDULE_ERROR", "Failed to load content", e)
-//        _uiState.value =
-//            _uiState.value.copy(
-//                isLoading = false,
-//                isRefreshing = false,
-//                isLoadingMore = false,
-//                error = e.message ?: "Unknown error",
-//            )
-//      }
-//    }
-//  }
-//
-//  private fun applyFilterAndGroup() {
-//    val currentFilter = _uiState.value.selectedFilter
-//    Log.d(
-//        "FILTER_DEBUG",
-//        "Current filter: $currentFilter, Movies: ${allMovies.size}, TV: ${allTvShows.size}",
-//    )
-//
-//    val filteredContent =
-//        when (currentFilter) {
-//          ContentFilter.MOVIES -> {
-//            Log.d("FILTER_DEBUG", "Using MOVIES only")
-//            allMovies
-//          }
-//          ContentFilter.TV_SHOWS -> {
-//            Log.d("FILTER_DEBUG", "Using TV_SHOWS only")
-//            allTvShows
-//          }
-//          ContentFilter.BOTH -> {
-//            Log.d("FILTER_DEBUG", "Using BOTH")
-//            (allMovies + allTvShows)
-//          }
-//        }
-//
-//    Log.d("FILTER_DEBUG", "Filtered content size: ${filteredContent.size}")
-//    val groupedMovies = groupContentByDate(filteredContent)
-//
-//    _uiState.value = _uiState.value.copy(upcomingMovies = groupedMovies)
-//  }
-//
-//  private fun groupContentByDate(content: List<DomainMovie>): List<DateGroupedMovies> {
-//    val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-//    val displayFormat = SimpleDateFormat("dd MMM yyyy", Locale.US)
-//
-//    val todayCalendar =
-//        Calendar.getInstance().apply {
-//          set(Calendar.HOUR_OF_DAY, 0)
-//          set(Calendar.MINUTE, 0)
-//          set(Calendar.SECOND, 0)
-//          set(Calendar.MILLISECOND, 0)
-//        }
-//    val todayDate = todayCalendar.time
-//
-//    Log.d("DATE_FILTER", "Today is: ${displayFormat.format(todayDate)}")
-//
-//    return content
-//        .mapNotNull { movie ->
-//          if (
-//              movie.releaseDate.isBlank() ||
-//                  !movie.releaseDate.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))
-//          ) {
-//            return@mapNotNull null
-//          }
-//
-//          try {
-//            val releaseDate = inputFormat.parse(movie.releaseDate) ?: return@mapNotNull null
-//
-//            if (releaseDate.before(todayDate)) {
-//              Log.d("DATE_FILTER", "❌ Filtered: ${movie.title} (${movie.releaseDate})")
-//              return@mapNotNull null
-//            }
-//
-//            Pair(releaseDate, movie)
-//          } catch (e: Exception) {
-//            Log.e("DATE_FILTER", "Parse error: ${movie.releaseDate}", e)
-//            null
-//          }
-//        }
-//        .sortedBy { it.first }
-//        .groupBy { (date, _) -> displayFormat.format(date) }
-//        .map { (dateString, pairs) ->
-//          DateGroupedMovies(
-//              dateFormatted = dateString,
-//              movies = pairs.map { it.second },
-//          )
-//        }
-//  }
-// }
+  private fun getMovieList(tab: ScheduleTab) =
+      when (tab) {
+        ScheduleTab.PREVIOUS -> prevMovies
+        ScheduleTab.THIS_WEEK -> weekMovies
+        ScheduleTab.UPCOMING -> upcomingMovies
+      }
+
+  private fun getTvList(tab: ScheduleTab) =
+      when (tab) {
+        ScheduleTab.PREVIOUS -> prevTvShows
+        ScheduleTab.THIS_WEEK -> weekTvShows
+        ScheduleTab.UPCOMING -> upcomingTvShows
+      }
+
+  private fun getCurrentMoviePage(tab: ScheduleTab) =
+      when (tab) {
+        ScheduleTab.PREVIOUS -> prevMoviePage
+        ScheduleTab.THIS_WEEK -> weekMoviePage
+        ScheduleTab.UPCOMING -> upcomingMoviePage
+      }
+
+  private fun getCurrentTvPage(tab: ScheduleTab) =
+      when (tab) {
+        ScheduleTab.PREVIOUS -> prevTvPage
+        ScheduleTab.THIS_WEEK -> weekTvPage
+        ScheduleTab.UPCOMING -> upcomingTvPage
+      }
+
+  private fun getMovieTotalPages(tab: ScheduleTab) =
+      when (tab) {
+        ScheduleTab.PREVIOUS -> prevMovieTotalPages
+        ScheduleTab.THIS_WEEK -> weekMovieTotalPages
+        ScheduleTab.UPCOMING -> upcomingMovieTotalPages
+      }
+
+  private fun getTvTotalPages(tab: ScheduleTab) =
+      when (tab) {
+        ScheduleTab.PREVIOUS -> prevTvTotalPages
+        ScheduleTab.THIS_WEEK -> weekTvTotalPages
+        ScheduleTab.UPCOMING -> upcomingTvTotalPages
+      }
+
+  private fun setMoviePage(tab: ScheduleTab, page: Int, total: Int) {
+    when (tab) {
+      ScheduleTab.PREVIOUS -> {
+        prevMoviePage = page
+        prevMovieTotalPages = total
+      }
+      ScheduleTab.THIS_WEEK -> {
+        weekMoviePage = page
+        weekMovieTotalPages = total
+      }
+      ScheduleTab.UPCOMING -> {
+        upcomingMoviePage = page
+        upcomingMovieTotalPages = total
+      }
+    }
+  }
+
+  private fun setTvPage(tab: ScheduleTab, page: Int, total: Int) {
+    when (tab) {
+      ScheduleTab.PREVIOUS -> {
+        prevTvPage = page
+        prevTvTotalPages = total
+      }
+      ScheduleTab.THIS_WEEK -> {
+        weekTvPage = page
+        weekTvTotalPages = total
+      }
+      ScheduleTab.UPCOMING -> {
+        upcomingTvPage = page
+        upcomingTvTotalPages = total
+      }
+    }
+  }
+}
