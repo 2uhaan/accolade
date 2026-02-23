@@ -17,43 +17,43 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.ruhaan.accolade.R
 import com.ruhaan.accolade.domain.model.Movie
 import com.ruhaan.accolade.presentation.common.AppSpacing
 import com.ruhaan.accolade.presentation.common.MainNavigationScreen
 import com.ruhaan.accolade.presentation.common.MovieCard
 import com.ruhaan.accolade.presentation.common.ShimmerMovieCard
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,173 +64,165 @@ fun ScheduleScreen(
   val uiState by viewModel.uiState.collectAsState()
 
   MainNavigationScreen(navController = navController) {
-    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
-      LazyColumn(
-          modifier = Modifier.fillMaxSize(),
-          contentPadding =
-              PaddingValues(
-                  top = AppSpacing.contentPaddingTop,
-                  bottom = AppSpacing.contentPaddingBottom,
-              ),
+    Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
+
+      // Tab Row
+      TabRow(
+          selectedTabIndex = uiState.selectedTab.ordinal,
+          containerColor = Color.White,
       ) {
+        listOf("Previous", "This Week", "Upcoming").forEachIndexed { index, label ->
+          val tab = ScheduleTab.entries[index]
+          Tab(
+              selected = uiState.selectedTab == tab,
+              onClick = { viewModel.selectTab(tab) },
+              text = {
+                Text(
+                    text = label,
+                    fontWeight =
+                        if (uiState.selectedTab == tab) FontWeight.Bold else FontWeight.Normal,
+                )
+              },
+          )
+        }
+      }
+
+      // Filter chips
+      Row(
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        ScheduleFilterChip("All", uiState.selectedFilter == ContentFilter.BOTH) {
+          viewModel.updateFilter(ContentFilter.BOTH)
+        }
+        ScheduleFilterChip("Movies", uiState.selectedFilter == ContentFilter.MOVIES) {
+          viewModel.updateFilter(ContentFilter.MOVIES)
+        }
+        ScheduleFilterChip("Shows", uiState.selectedFilter == ContentFilter.TV_SHOWS) {
+          viewModel.updateFilter(ContentFilter.TV_SHOWS)
+        }
+      }
+
+      // Tab content
+      val currentTabState =
+          when (uiState.selectedTab) {
+            ScheduleTab.PREVIOUS -> uiState.previous
+            ScheduleTab.THIS_WEEK -> uiState.thisWeek
+            ScheduleTab.UPCOMING -> uiState.upcoming
+          }
+
+      TabContent(
+          tabState = currentTabState,
+          tab = uiState.selectedTab,
+          onMovieClick = { movie ->
+            navController.navigate("detail/${movie.id}/${movie.mediaType.name}")
+          },
+          onLoadMore = { viewModel.loadMoreContent() },
+          onRetry = { viewModel.refreshTab(uiState.selectedTab) },
+      )
+    }
+  }
+}
+
+@Composable
+fun TabContent(
+    tabState: TabState,
+    tab: ScheduleTab,
+    onMovieClick: (Movie) -> Unit,
+    onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
+) {
+  val listState = rememberLazyListState()
+
+  LaunchedEffect(listState) {
+    snapshotFlow {
+          val total = listState.layoutInfo.totalItemsCount
+          val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+          total > 0 && lastVisible >= total - 4
+        }
+        .distinctUntilChanged()
+        .collect { nearEnd -> if (nearEnd) onLoadMore() }
+  }
+
+  LazyColumn(
+      state = listState,
+      modifier = Modifier.fillMaxSize(),
+      contentPadding =
+          PaddingValues(
+              top = 8.dp,
+              bottom = AppSpacing.contentPaddingBottom,
+          ),
+  ) {
+    when {
+      tabState.isLoading -> {
+        items(4) { ShimmerDateSection() }
+      }
+
+      tabState.error != null -> {
         item {
-          Row(
-              modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-              verticalAlignment = Alignment.CenterVertically,
+          Card(
+              modifier = Modifier.fillMaxWidth().padding(24.dp),
+              shape = RoundedCornerShape(16.dp),
           ) {
-            ScheduleFilterChip(
-                label = "All",
-                selected = uiState.selectedFilter == ContentFilter.BOTH,
-                onClick = { viewModel.updateFilter(ContentFilter.BOTH) },
-            )
-            ScheduleFilterChip(
-                label = "Movies",
-                selected = uiState.selectedFilter == ContentFilter.MOVIES,
-                onClick = { viewModel.updateFilter(ContentFilter.MOVIES) },
-            )
-            ScheduleFilterChip(
-                label = "Shows",
-                selected = uiState.selectedFilter == ContentFilter.TV_SHOWS,
-                onClick = { viewModel.updateFilter(ContentFilter.TV_SHOWS) },
-            )
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+              Text(
+                  "Network Error",
+                  style = MaterialTheme.typography.headlineSmall,
+                  fontWeight = FontWeight.Bold,
+              )
+              Spacer(modifier = Modifier.height(8.dp))
+              Text(
+                  tabState.error,
+                  style = MaterialTheme.typography.bodyMedium,
+                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+              )
+              Spacer(modifier = Modifier.height(16.dp))
+              Button(onClick = onRetry, shape = RoundedCornerShape(12.dp)) { Text("Retry") }
+            }
           }
         }
-        when {
-          uiState.isLoading -> {
-            items(4) { ShimmerDateSection() }
-          }
+      }
 
-          uiState.error != null -> {
-            item {
-              Card(
-                  modifier = Modifier.fillMaxWidth().padding(24.dp),
-                  shape = RoundedCornerShape(16.dp),
-              ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                  Text(
-                      "Network Error",
-                      style = MaterialTheme.typography.headlineSmall,
-                      fontWeight = FontWeight.Bold,
-                  )
-                  Spacer(modifier = Modifier.height(8.dp))
-                  Text(
-                      uiState.error ?: "Unknown error",
-                      style = MaterialTheme.typography.bodyMedium,
-                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                  )
-                  Spacer(modifier = Modifier.height(16.dp))
-                  Button(
-                      onClick = { viewModel.refreshContent() },
-                      shape = RoundedCornerShape(12.dp),
-                  ) {
-                    Text("Retry")
-                  }
-                }
-              }
-            }
-          }
-
-          uiState.upcomingMovies.isEmpty() -> {
-            item {
-              Box(
-                  modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
-                  contentAlignment = Alignment.Center,
-              ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                  Text(
-                      text = "No upcoming releases",
-                      style = MaterialTheme.typography.titleMedium,
-                      color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                  )
-                  Spacer(modifier = Modifier.height(8.dp))
-                  TextButton(onClick = { viewModel.refreshContent() }) { Text("Refresh") }
-                }
-              }
-            }
-          }
-
-          else -> {
-            items(uiState.upcomingMovies) { dateGroup ->
-              DateSection(
-                  dateGroup = dateGroup,
-                  onMovieClick = { clickedMovie ->
-                    navController.navigate(
-                        "detail/${clickedMovie.id}/${clickedMovie.mediaType.name}"
-                    )
-                  },
+      tabState.content.isEmpty() -> {
+        item {
+          Box(
+              modifier = Modifier.fillMaxWidth().padding(vertical = 64.dp),
+              contentAlignment = Alignment.Center,
+          ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+              Text(
+                  text =
+                      when (tab) {
+                        ScheduleTab.THIS_WEEK -> "Nothing releasing this week"
+                        ScheduleTab.PREVIOUS -> "Nothing in the last 30 days"
+                        ScheduleTab.UPCOMING -> "No upcoming releases found"
+                      },
+                  style = MaterialTheme.typography.titleMedium,
+                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
               )
-            }
-
-            if (uiState.hasMorePages) {
-              item {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                  // Show loaded counts based on filter
-                  when (uiState.selectedFilter) {
-                    ContentFilter.BOTH -> {
-                      Text(
-                          text = "${uiState.moviesLoaded} movies • ${uiState.tvShowsLoaded} shows",
-                          style = MaterialTheme.typography.bodySmall,
-                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                      )
-                    }
-                    ContentFilter.MOVIES -> {
-                      Text(
-                          text = "${uiState.moviesLoaded} movies loaded",
-                          style = MaterialTheme.typography.bodySmall,
-                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                      )
-                    }
-                    ContentFilter.TV_SHOWS -> {
-                      Text(
-                          text = "${uiState.tvShowsLoaded} shows loaded",
-                          style = MaterialTheme.typography.bodySmall,
-                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                      )
-                    }
-                  }
-
-                  // Existing Load More Button (unchanged)
-                  Surface(
-                      onClick = { if (!uiState.isLoadingMore) viewModel.loadMoreContent() },
-                      shape = CircleShape,
-                      color = Color(0xFF2196F3),
-                      shadowElevation = 6.dp,
-                      modifier = Modifier.size(52.dp),
-                  ) {
-                    Box(contentAlignment = Alignment.Center) {
-                      if (uiState.isLoadingMore) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.5.dp,
-                            color = Color.White,
-                        )
-                      } else {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_arrow_down),
-                            contentDescription = "Load more",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp),
-                        )
-                      }
-                    }
-                  }
-                }
-              }
+              Spacer(modifier = Modifier.height(8.dp))
+              TextButton(onClick = onRetry) { Text("Refresh") }
             }
           }
+        }
+      }
+
+      else -> {
+        items(tabState.content) { dateGroup ->
+          DateSection(dateGroup = dateGroup, onMovieClick = onMovieClick)
+        }
+        if (tabState.isLoadingMore) {
+          items(2) { ShimmerDateSection() }
         }
       }
     }
   }
 }
+
+// Keep ScheduleFilterChip, DateSection, ShimmerDateSection, ShimmerBox exactly as before
 
 @Composable
 fun ScheduleFilterChip(

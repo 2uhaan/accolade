@@ -23,23 +23,29 @@ interface TmdbApiService {
       @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
   ): TrendingResponse
 
+  // Schedule Screen
   @GET("discover/movie")
-  suspend fun getUpcomingMovies(
+  suspend fun discoverMovies(
       @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
       @Query("page") page: Int,
-      @Query("release_date.gte") minDate: String,
-      @Query("sort_by") sortBy: String,
-      @Query("region") region: String,
-      @Query("with_release_type") releaseType: String,
-      @Query("vote_count.gte") minVoteCount: Int,
+      @Query("language") language: String = "en-US",
+      @Query("primary_release_date.gte") minDate: String? = null,
+      @Query("primary_release_date.lte") maxDate: String? = null,
+      @Query("sort_by") sortBy: String = "popularity.desc",
+      @Query("vote_count.gte") minVoteCount: Int? = null,
+      @Query("with_original_language") withOriginalLanguage: String? = null,
   ): MovieListResponse
 
-  @GET("tv/on_the_air")
-  suspend fun getUpcomingTvShows(
+  @GET("discover/tv")
+  suspend fun discoverTv(
       @Header("Authorization") authorization: String = "Bearer ${BuildConfig.TMDB_API_KEY}",
       @Query("page") page: Int,
-      @Query("region") region: String,
-      @Query("vote_count.gte") minVoteCount: Int,
+      @Query("language") language: String = "en-US",
+      @Query("first_air_date.gte") minDate: String? = null,
+      @Query("first_air_date.lte") maxDate: String? = null,
+      @Query("sort_by") sortBy: String = "popularity.desc",
+      @Query("vote_count.gte") minVoteCount: Int? = null,
+      @Query("with_original_language") withOriginalLanguage: String? = null,
   ): TvShowListResponse
 
   // Content Detailed Page

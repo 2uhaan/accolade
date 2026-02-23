@@ -5,9 +5,10 @@ import com.ruhaan.accolade.domain.model.CrewMember
 import com.ruhaan.accolade.domain.model.MediaType
 import com.ruhaan.accolade.domain.model.Movie
 import com.ruhaan.accolade.domain.model.MovieDetail
+import com.ruhaan.accolade.domain.model.PaginatedResult
+import com.ruhaan.accolade.domain.model.Person
 import com.ruhaan.accolade.domain.model.Review
 import com.ruhaan.accolade.domain.model.SearchResult
-import com.ruhaan.accolade.domain.model.Person
 
 interface MovieRepository {
   // Home screen methods
@@ -16,9 +17,17 @@ interface MovieRepository {
   suspend fun getEditorsPicks(): List<Movie>
 
   // Schedule screen methods
-  suspend fun getUpcomingMovies(page: Int = 1): List<Movie>
+  suspend fun getPreviousMovies(page: Int = 1): PaginatedResult<Movie>
 
-  suspend fun getUpcomingTvShows(page: Int = 1): List<Movie>
+  suspend fun getPreviousTvShows(page: Int = 1): PaginatedResult<Movie>
+
+  suspend fun getThisWeekMovies(page: Int = 1): PaginatedResult<Movie>
+
+  suspend fun getThisWeekTvShows(page: Int = 1): PaginatedResult<Movie>
+
+  suspend fun getUpcomingMovies(page: Int = 1): PaginatedResult<Movie>
+
+  suspend fun getUpcomingTvShows(page: Int = 1): PaginatedResult<Movie>
 
   // Detail screen methods
   suspend fun getMovieDetail(id: Int, mediaType: MediaType): MovieDetail
