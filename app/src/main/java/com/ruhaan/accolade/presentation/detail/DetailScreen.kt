@@ -80,6 +80,7 @@ import com.ruhaan.accolade.domain.model.Genre
 import com.ruhaan.accolade.domain.model.MediaType
 import com.ruhaan.accolade.domain.model.MovieDetail
 import com.ruhaan.accolade.domain.model.Review
+import com.ruhaan.accolade.presentation.common.ErrorPlaceholder
 import com.ruhaan.accolade.presentation.search.OffWhite
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -174,6 +175,7 @@ private fun DetailContent(
         backdropPath = detail.backdropPath,
         posterPath = detail.posterPath,
         trailer = detail.trailer,
+        movieTitle = detail.title,
     )
 
     Spacer(modifier = Modifier.height(30.dp))
@@ -246,6 +248,7 @@ private fun BannerWithTrailer(
     backdropPath: String?,
     posterPath: String,
     trailer: com.ruhaan.accolade.domain.model.Trailer?,
+    movieTitle: String, // add this
 ) {
   val context = LocalContext.current
   val backgroundColor = MaterialTheme.colorScheme.background
@@ -350,15 +353,7 @@ private fun BannerWithTrailer(
             CircularProgressIndicator()
           }
         },
-        error = {
-          Box(
-              modifier =
-                  Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
-              contentAlignment = Alignment.Center,
-          ) {
-            Text("No image")
-          }
-        },
+        error = { ErrorPlaceholder(movieTitle = movieTitle) },
     )
   }
 }
