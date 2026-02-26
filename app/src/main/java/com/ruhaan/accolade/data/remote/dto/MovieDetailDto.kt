@@ -11,8 +11,8 @@ data class MovieDetailDto(
     @SerializedName("backdrop_path") val backdropPath: String?,
     @SerializedName("release_date") val releaseDate: String?,
     val runtime: Int?, // in minutes
-    @SerializedName("production_countries") val productionCountries: List<ProductionCountry>,
-    @SerializedName("spoken_languages") val spokenLanguages: List<SpokenLanguage>,
+    @SerializedName("origin_country") val originCountry: List<String> = emptyList(),
+    @SerializedName("original_language") val originalLanguage: String?,
     @SerializedName("vote_average") val voteAverage: Double,
     val genres: List<GenreDto> = emptyList(), // ADD THIS
 )
@@ -26,8 +26,8 @@ data class TvShowDetailDto(
     @SerializedName("backdrop_path") val backdropPath: String?,
     @SerializedName("first_air_date") val firstAirDate: String?,
     @SerializedName("episode_run_time") val episodeRunTime: List<Int>, // array of runtimes
-    @SerializedName("production_countries") val productionCountries: List<ProductionCountry>,
-    @SerializedName("spoken_languages") val spokenLanguages: List<SpokenLanguage>,
+    @SerializedName("origin_country") val originCountry: List<String> = emptyList(),
+    @SerializedName("original_language") val originalLanguage: String?,
     @SerializedName("vote_average") val voteAverage: Double,
     @SerializedName("created_by") val createdBy: List<Creator>,
     val genres: List<GenreDto> = emptyList(), // ADD THIS

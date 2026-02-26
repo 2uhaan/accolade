@@ -1,8 +1,12 @@
 package com.ruhaan.accolade.presentation.schedule
 
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.EaseInOutCubic
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -43,9 +47,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.ruhaan.accolade.domain.model.Movie
@@ -62,6 +69,7 @@ fun ScheduleScreen(
     viewModel: ScheduleViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsState()
+  val view = LocalView.current
 
   MainNavigationScreen(navController = navController) {
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
@@ -73,14 +81,40 @@ fun ScheduleScreen(
       ) {
         listOf("Previous", "This Week", "Upcoming").forEachIndexed { index, label ->
           val tab = ScheduleTab.entries[index]
+          val isSelected = uiState.selectedTab == tab
+
+          val animatedScale by
+              animateFloatAsState(
+                  targetValue = if (isSelected) 1f else 0.87f,
+                  animationSpec = tween(durationMillis = 250, easing = EaseInOutCubic),
+                  label = "tabScale_$index",
+              )
+
+          val animatedColor by
+              animateColorAsState(
+                  targetValue =
+                      if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF9E9E9E),
+                  animationSpec = tween(durationMillis = 250),
+                  label = "tabColor_$index",
+              )
+
           Tab(
-              selected = uiState.selectedTab == tab,
-              onClick = { viewModel.selectTab(tab) },
+              selected = isSelected,
+              onClick = {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                viewModel.selectTab(tab)
+              },
               text = {
                 Text(
                     text = label,
-                    fontWeight =
-                        if (uiState.selectedTab == tab) FontWeight.Bold else FontWeight.Normal,
+                    fontSize = 14.sp,
+                    modifier =
+                        Modifier.graphicsLayer {
+                          scaleX = animatedScale
+                          scaleY = animatedScale
+                        },
+                    color = animatedColor,
+                    fontWeight = FontWeight.Medium,
                 )
               },
           )
@@ -222,8 +256,6 @@ fun TabContent(
   }
 }
 
-// Keep ScheduleFilterChip, DateSection, ShimmerDateSection, ShimmerBox exactly as before
-
 @Composable
 fun ScheduleFilterChip(
     label: String,
@@ -233,7 +265,7 @@ fun ScheduleFilterChip(
   Surface(
       onClick = onClick,
       shape = RoundedCornerShape(50),
-      color = if (selected) Color(0xFF2196F3) else Color(0xFFEEF0F4),
+      color = if (selected) MaterialTheme.colorScheme.primary else Color(0xFFEEF0F4),
       shadowElevation = if (selected) 2.dp else 0.dp,
       modifier = Modifier.height(36.dp),
   ) {

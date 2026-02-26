@@ -103,29 +103,61 @@ constructor(
 
   private fun loadTab(tab: ScheduleTab, isLoadMore: Boolean = false) {
     viewModelScope.launch {
-      val currentMoviePage = getCurrentMoviePage(tab)
-      val currentTvPage = getCurrentTvPage(tab)
-      val nextMoviePage = if (isLoadMore) currentMoviePage + 1 else currentMoviePage
-      val nextTvPage = if (isLoadMore) currentTvPage + 1 else currentTvPage
-      val canLoadMovies = nextMoviePage <= getMovieTotalPages(tab)
-      val canLoadTvShows = nextTvPage <= getTvTotalPages(tab)
-
-      Log.d(
-          "SCHEDULE",
-          "[$tab] loadMore=$isLoadMore movie=$nextMoviePage/${getMovieTotalPages(tab)} tv=$nextTvPage/${getTvTotalPages(tab)}",
-      )
-
       setTabState(tab) {
         it.copy(isLoading = !isLoadMore, isLoadingMore = isLoadMore, error = null)
       }
 
       try {
+        if (tab == ScheduleTab.THIS_WEEK) {
+          // Load all pages at once for This Week
+          var moviePage = 1
+          var movieTotalPages = 1
+          do {
+            val result = repository.getThisWeekMovies(moviePage)
+            weekMovies.addAll(result.items)
+            movieTotalPages = result.totalPages
+            moviePage++
+          } while (moviePage <= movieTotalPages)
+          weekMoviePage = moviePage - 1
+          weekMovieTotalPages = movieTotalPages
+
+          var tvPage = 1
+          var tvTotalPages = 1
+          do {
+            val result = repository.getThisWeekTvShows(tvPage)
+            weekTvShows.addAll(result.items)
+            tvTotalPages = result.totalPages
+            tvPage++
+          } while (tvPage <= tvTotalPages)
+          weekTvPage = tvPage - 1
+          weekTvTotalPages = tvTotalPages
+
+          setTabState(tab) {
+            it.copy(isLoading = false, isLoadingMore = false, hasMorePages = false)
+          }
+          updateTabContent(tab)
+          return@launch
+        }
+
+        // Previous and Upcoming — paginated as before
+        val currentMoviePage = getCurrentMoviePage(tab)
+        val currentTvPage = getCurrentTvPage(tab)
+        val nextMoviePage = if (isLoadMore) currentMoviePage + 1 else currentMoviePage
+        val nextTvPage = if (isLoadMore) currentTvPage + 1 else currentTvPage
+        val canLoadMovies = nextMoviePage <= getMovieTotalPages(tab)
+        val canLoadTvShows = nextTvPage <= getTvTotalPages(tab)
+
+        Log.d(
+            "SCHEDULE",
+            "[$tab] loadMore=$isLoadMore movie=$nextMoviePage/${getMovieTotalPages(tab)} tv=$nextTvPage/${getTvTotalPages(tab)}",
+        )
+
         if (canLoadMovies) {
           val result =
               when (tab) {
                 ScheduleTab.PREVIOUS -> repository.getPreviousMovies(nextMoviePage)
-                ScheduleTab.THIS_WEEK -> repository.getThisWeekMovies(nextMoviePage)
                 ScheduleTab.UPCOMING -> repository.getUpcomingMovies(nextMoviePage)
+                ScheduleTab.THIS_WEEK -> return@launch // handled above
               }
           getMovieList(tab).addAll(result.items)
           setMoviePage(tab, result.currentPage, result.totalPages)
@@ -139,8 +171,8 @@ constructor(
           val result =
               when (tab) {
                 ScheduleTab.PREVIOUS -> repository.getPreviousTvShows(nextTvPage)
-                ScheduleTab.THIS_WEEK -> repository.getThisWeekTvShows(nextTvPage)
                 ScheduleTab.UPCOMING -> repository.getUpcomingTvShows(nextTvPage)
+                ScheduleTab.THIS_WEEK -> return@launch // handled above
               }
           getTvList(tab).addAll(result.items)
           setTvPage(tab, result.currentPage, result.totalPages)
