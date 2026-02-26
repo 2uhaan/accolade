@@ -81,8 +81,8 @@ fun MovieCard(movie: Movie, onMovieClick: (Movie) -> Unit, modifier: Modifier = 
           label = "scale",
       )
 
-  // Build complete image URL
-  val imageUrl = remember(movie.posterPath) { "https://image.tmdb.org/t/p/w500${movie.posterPath}" }
+  // Build complete image URL — replace w500 with w342
+  val imageUrl = remember(movie.posterPath) { "https://image.tmdb.org/t/p/w342${movie.posterPath}" }
 
   Column(
       modifier =
@@ -127,7 +127,7 @@ fun MovieCard(movie: Movie, onMovieClick: (Movie) -> Unit, modifier: Modifier = 
 }
 
 @Composable
-private fun ErrorPlaceholder(movieTitle: String) {
+fun ErrorPlaceholder(movieTitle: String) {
   Box(
       modifier = Modifier.fillMaxSize().background(Color(0xFF14181C)),
       contentAlignment = Alignment.Center,
@@ -234,26 +234,4 @@ fun ShimmerMovieCard() {
   }
 }
 
-// @Composable
-// fun ShimmerMovieCard() {
-//  val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-//  val alpha by
-//      infiniteTransition.animateFloat(
-//          initialValue = 0.3f,
-//          targetValue = 0.9f,
-//          animationSpec =
-//              infiniteRepeatable(
-//                  animation = tween(durationMillis = 1000, easing = LinearEasing),
-//                  repeatMode = RepeatMode.Reverse,
-//              ),
-//          label = "alpha",
-//      )
-//
-//  Card(
-//      modifier = Modifier.fillMaxWidth().aspectRatio(0.67f), // Poster aspect ratio (2:3)
-//      shape = RoundedCornerShape(8.dp),
-//      elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-//  ) {
-//    Box(modifier = Modifier.fillMaxSize().background(Color.Gray.copy(alpha = alpha)))
-//  }
-// }
+

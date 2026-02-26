@@ -9,6 +9,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 import javax.inject.Inject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +27,6 @@ constructor(
   private val _uiState = MutableStateFlow(ScheduleUiState())
   val uiState: StateFlow<ScheduleUiState> = _uiState.asStateFlow()
 
-  // Raw data per tab
   private val prevMovies = mutableListOf<Movie>()
   private val prevTvShows = mutableListOf<Movie>()
   private var prevMoviePage = 1
@@ -47,18 +49,21 @@ constructor(
   private var upcomingTvTotalPages = 1
 
   init {
+    // Only load the default visible tab — others load lazily on first visit
     loadTab(ScheduleTab.THIS_WEEK)
-    loadTab(ScheduleTab.PREVIOUS)
-    loadTab(ScheduleTab.UPCOMING)
   }
 
   fun selectTab(tab: ScheduleTab) {
     _uiState.value = _uiState.value.copy(selectedTab = tab)
+    // Lazy load: only fetch if tab has never been loaded
+    val tabState = getTabState(tab)
+    if (tabState.content.isEmpty() && !tabState.isLoading) {
+      loadTab(tab)
+    }
   }
 
   fun updateFilter(filter: ContentFilter) {
     _uiState.value = _uiState.value.copy(selectedFilter = filter)
-    // Regroup all tabs with new filter
     updateTabContent(ScheduleTab.PREVIOUS)
     updateTabContent(ScheduleTab.THIS_WEEK)
     updateTabContent(ScheduleTab.UPCOMING)
@@ -109,37 +114,50 @@ constructor(
 
       try {
         if (tab == ScheduleTab.THIS_WEEK) {
-          // Load all pages at once for This Week
-          var moviePage = 1
-          var movieTotalPages = 1
-          do {
-            val result = repository.getThisWeekMovies(moviePage)
-            weekMovies.addAll(result.items)
-            movieTotalPages = result.totalPages
-            moviePage++
-          } while (moviePage <= movieTotalPages)
-          weekMoviePage = moviePage - 1
-          weekMovieTotalPages = movieTotalPages
+          // FIX 1: Fetch first pages of movies + TV in parallel
+          val (firstMovieResult, firstTvResult) =
+              coroutineScope {
+                val m = async { repository.getThisWeekMovies(1) }
+                val t = async { repository.getThisWeekTvShows(1) }
+                Pair(m.await(), t.await())
+              }
 
-          var tvPage = 1
-          var tvTotalPages = 1
-          do {
-            val result = repository.getThisWeekTvShows(tvPage)
-            weekTvShows.addAll(result.items)
-            tvTotalPages = result.totalPages
-            tvPage++
-          } while (tvPage <= tvTotalPages)
-          weekTvPage = tvPage - 1
-          weekTvTotalPages = tvTotalPages
+          weekMovies.addAll(firstMovieResult.items)
+          weekMovieTotalPages = firstMovieResult.totalPages
+          weekMoviePage = 1
 
+          weekTvShows.addAll(firstTvResult.items)
+          weekTvTotalPages = firstTvResult.totalPages
+          weekTvPage = 1
+
+          // Show first page immediately
           setTabState(tab) {
             it.copy(isLoading = false, isLoadingMore = false, hasMorePages = false)
           }
           updateTabContent(tab)
+
+          // FIX 2: Fetch ALL remaining pages (movies + TV) in parallel
+          coroutineScope {
+            val remainingMovieResults =
+                (2..firstMovieResult.totalPages)
+                    .map { page -> async { repository.getThisWeekMovies(page) } }
+                    .awaitAll()
+
+            val remainingTvResults =
+                (2..firstTvResult.totalPages)
+                    .map { page -> async { repository.getThisWeekTvShows(page) } }
+                    .awaitAll()
+
+            // Batch-add after all are done — no sync needed
+            remainingMovieResults.forEach { weekMovies.addAll(it.items) }
+            remainingTvResults.forEach { weekTvShows.addAll(it.items) }
+          }
+
+          updateTabContent(tab)
           return@launch
         }
 
-        // Previous and Upcoming — paginated as before
+        // PREVIOUS / UPCOMING — FIX 3: fetch movies + TV in parallel
         val currentMoviePage = getCurrentMoviePage(tab)
         val currentTvPage = getCurrentTvPage(tab)
         val nextMoviePage = if (isLoadMore) currentMoviePage + 1 else currentMoviePage
@@ -152,34 +170,45 @@ constructor(
             "[$tab] loadMore=$isLoadMore movie=$nextMoviePage/${getMovieTotalPages(tab)} tv=$nextTvPage/${getTvTotalPages(tab)}",
         )
 
-        if (canLoadMovies) {
-          val result =
-              when (tab) {
-                ScheduleTab.PREVIOUS -> repository.getPreviousMovies(nextMoviePage)
-                ScheduleTab.UPCOMING -> repository.getUpcomingMovies(nextMoviePage)
-                ScheduleTab.THIS_WEEK -> return@launch // handled above
-              }
-          getMovieList(tab).addAll(result.items)
-          setMoviePage(tab, result.currentPage, result.totalPages)
-          Log.d(
-              "SCHEDULE",
-              "[$tab] movies fetched: ${result.items.size} | total=${getMovieList(tab).size}",
-          )
-        }
+        coroutineScope {
+          val movieJob =
+              if (canLoadMovies)
+                  async {
+                    val result =
+                        when (tab) {
+                          ScheduleTab.PREVIOUS -> repository.getPreviousMovies(nextMoviePage)
+                          ScheduleTab.UPCOMING -> repository.getUpcomingMovies(nextMoviePage)
+                          ScheduleTab.THIS_WEEK -> return@async
+                        }
+                    getMovieList(tab).addAll(result.items)
+                    setMoviePage(tab, result.currentPage, result.totalPages)
+                    Log.d(
+                        "SCHEDULE",
+                        "[$tab] movies fetched: ${result.items.size} | total=${getMovieList(tab).size}",
+                    )
+                  }
+              else null
 
-        if (canLoadTvShows) {
-          val result =
-              when (tab) {
-                ScheduleTab.PREVIOUS -> repository.getPreviousTvShows(nextTvPage)
-                ScheduleTab.UPCOMING -> repository.getUpcomingTvShows(nextTvPage)
-                ScheduleTab.THIS_WEEK -> return@launch // handled above
-              }
-          getTvList(tab).addAll(result.items)
-          setTvPage(tab, result.currentPage, result.totalPages)
-          Log.d(
-              "SCHEDULE",
-              "[$tab] tv fetched: ${result.items.size} | total=${getTvList(tab).size}",
-          )
+          val tvJob =
+              if (canLoadTvShows)
+                  async {
+                    val result =
+                        when (tab) {
+                          ScheduleTab.PREVIOUS -> repository.getPreviousTvShows(nextTvPage)
+                          ScheduleTab.UPCOMING -> repository.getUpcomingTvShows(nextTvPage)
+                          ScheduleTab.THIS_WEEK -> return@async
+                        }
+                    getTvList(tab).addAll(result.items)
+                    setTvPage(tab, result.currentPage, result.totalPages)
+                    Log.d(
+                        "SCHEDULE",
+                        "[$tab] tv fetched: ${result.items.size} | total=${getTvList(tab).size}",
+                    )
+                  }
+              else null
+
+          movieJob?.await()
+          tvJob?.await()
         }
 
         val hasMore =
@@ -240,8 +269,6 @@ constructor(
 
     return if (reversed) grouped.reversed() else grouped
   }
-
-  // --- Helpers to access per-tab data cleanly ---
 
   private fun getTabState(tab: ScheduleTab) =
       when (tab) {
