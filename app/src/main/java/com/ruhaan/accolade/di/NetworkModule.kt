@@ -49,10 +49,4 @@ object NetworkModule {
   fun provideTmdbApiService(retrofit: Retrofit): TmdbApiService {
     return retrofit.create(TmdbApiService::class.java)
   }
-
-  @Provides
-  @Singleton
-  fun provideMovieRepository(apiService: TmdbApiService): MovieRepository {
-    return MovieRepositoryImpl(apiService)
-  }
 }
