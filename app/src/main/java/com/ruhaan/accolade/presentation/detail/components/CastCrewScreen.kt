@@ -1,5 +1,11 @@
 package com.ruhaan.accolade.presentation.detail.components
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,18 +15,18 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,9 +39,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -96,7 +107,21 @@ fun CastCrewScreen(
     Box(modifier = Modifier.fillMaxSize().padding(top = paddingValues.calculateTopPadding())) {
       when (val state = uiState) {
         is CastCrewUiState.Loading -> {
-          CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+          LazyVerticalGrid(
+              columns = GridCells.Fixed(2),
+              modifier = Modifier.fillMaxSize(),
+              contentPadding =
+                  PaddingValues(
+                      start = 16.dp,
+                      end = 16.dp,
+                      top = 16.dp,
+                      bottom = AppSpacing.contentPaddingBottom,
+                  ),
+              horizontalArrangement = Arrangement.spacedBy(16.dp),
+              verticalArrangement = Arrangement.spacedBy(16.dp),
+          ) {
+            items(8) { ShimmerPersonItem() }
+          }
         }
         is CastCrewUiState.Error -> {
           ErrorView(
@@ -194,11 +219,12 @@ private fun PersonItem(
             Box(
                 modifier =
                     Modifier.size(120.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-              CircularProgressIndicator(modifier = Modifier.size(32.dp))
-            }
+                        .graphicsLayer {
+                          clip = true
+                          shape = CircleShape
+                        }
+                        .background(shimmerBrush()) // ← see note below
+            )
           },
           error = { PlaceholderProfile(size = 120.dp, iconSize = 60.dp) },
       )
@@ -241,6 +267,86 @@ private fun PlaceholderProfile(size: Dp = 64.dp, iconSize: Dp = 32.dp) {
         contentDescription = "No profile picture",
         modifier = Modifier.size(iconSize),
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+  }
+}
+
+@Composable
+private fun ShimmerPersonItem() {
+  val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+  val translateAnim by
+      infiniteTransition.animateFloat(
+          initialValue = 0f,
+          targetValue = 1000f,
+          animationSpec =
+              infiniteRepeatable(
+                  animation = tween(durationMillis = 1200, easing = LinearEasing),
+                  repeatMode = RepeatMode.Restart,
+              ),
+          label = "translate",
+      )
+  val brush =
+      remember(translateAnim) {
+        Brush.linearGradient(
+            colors = listOf(Color(0xFFC0C0C0), Color(0xFFFFFFFF), Color(0xFFC0C0C0)),
+            start = Offset(translateAnim - 1000f, translateAnim - 1000f),
+            end = Offset(translateAnim, translateAnim),
+        )
+      }
+
+  Column(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
+    // Circle avatar
+    Box(
+        modifier =
+            Modifier.size(120.dp)
+                .graphicsLayer {
+                  clip = true
+                  shape = CircleShape
+                }
+                .background(brush)
+    )
+    // Name line
+    Box(
+        modifier =
+            Modifier.fillMaxWidth(0.7f)
+                .height(14.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(brush)
+    )
+    // Subtitle line
+    Box(
+        modifier =
+            Modifier.fillMaxWidth(0.5f)
+                .height(12.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(brush)
+    )
+  }
+}
+
+@Composable
+fun shimmerBrush(): Brush {
+  val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+  val translateAnim by
+      infiniteTransition.animateFloat(
+          initialValue = 0f,
+          targetValue = 1000f,
+          animationSpec =
+              infiniteRepeatable(
+                  animation = tween(durationMillis = 1200, easing = LinearEasing),
+                  repeatMode = RepeatMode.Restart,
+              ),
+          label = "translate",
+      )
+  return remember(translateAnim) {
+    Brush.linearGradient(
+        colors = listOf(Color(0xFFC0C0C0), Color(0xFFFFFFFF), Color(0xFFC0C0C0)),
+        start = Offset(translateAnim - 1000f, translateAnim - 1000f),
+        end = Offset(translateAnim, translateAnim),
     )
   }
 }

@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -168,7 +169,7 @@ private fun BottomBarContent(
                   .offset(x = indicatorOffset * (56.dp + 16.dp))
                   .size(56.dp)
                   .clip(CircleShape)
-                  .background(Color(0xFF2196F3))
+                  .background(MaterialTheme.colorScheme.primary)
       )
     }
 
@@ -231,7 +232,8 @@ private fun BottomNavIcon(
                       ripple(
                           bounded = false,
                           radius = 24.dp,
-                          color = Color(0xFF2196F3).copy(alpha = 0.2f),
+                          color = MaterialTheme.colorScheme.primary,
+                          // color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                       ),
                   interactionSource = remember { MutableInteractionSource() },
               ),

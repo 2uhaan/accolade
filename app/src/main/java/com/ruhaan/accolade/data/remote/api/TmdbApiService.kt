@@ -33,6 +33,7 @@ interface TmdbApiService {
       @Query("primary_release_date.lte") maxDate: String? = null,
       @Query("sort_by") sortBy: String = "popularity.desc",
       @Query("vote_count.gte") minVoteCount: Int? = null,
+      @Query("popularity.gte") minPopularity: Float? = null,
       @Query("with_original_language") withOriginalLanguage: String? = null,
   ): MovieListResponse
 
@@ -45,6 +46,7 @@ interface TmdbApiService {
       @Query("first_air_date.lte") maxDate: String? = null,
       @Query("sort_by") sortBy: String = "popularity.desc",
       @Query("vote_count.gte") minVoteCount: Int? = null,
+      @Query("popularity.gte") minPopularity: Float? = null,
       @Query("with_original_language") withOriginalLanguage: String? = null,
   ): TvShowListResponse
 

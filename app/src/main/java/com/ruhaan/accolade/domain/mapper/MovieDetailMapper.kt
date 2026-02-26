@@ -23,14 +23,15 @@ object MovieDetailMapper {
         mediaType = MediaType.MOVIE,
         posterPath = "https://image.tmdb.org/t/p/w500${detailDto.posterPath ?: ""}",
         backdropPath = detailDto.backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" },
-        country = detailDto.productionCountries.firstOrNull()?.name ?: "N/A",
-        language = detailDto.spokenLanguages.firstOrNull()?.englishName ?: "N/A",
+        country = countryDisplayName(detailDto.originCountry.firstOrNull()),
+        language = languageDisplayName(detailDto.originalLanguage),
         directors = directors,
         runtime = runtime,
         synopsis = detailDto.overview ?: "No synopsis available",
         rating = (detailDto.voteAverage * 10).roundToInt(),
         trailer = trailer,
         genres = genres,
+        year = detailDto.releaseDate?.take(4) ?: "N/A",
     )
   }
 
@@ -50,15 +51,34 @@ object MovieDetailMapper {
         mediaType = MediaType.TV_SHOW,
         posterPath = "https://image.tmdb.org/t/p/w500${detailDto.posterPath ?: ""}",
         backdropPath = detailDto.backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" },
-        country = detailDto.productionCountries.firstOrNull()?.name ?: "N/A",
-        language = detailDto.spokenLanguages.firstOrNull()?.englishName ?: "N/A",
+        country = countryDisplayName(detailDto.originCountry.firstOrNull()),
+        language = languageDisplayName(detailDto.originalLanguage),
         directors = directors,
         runtime = runtime,
         synopsis = detailDto.overview ?: "No synopsis available",
         rating = (detailDto.voteAverage * 10).roundToInt(),
         trailer = trailer,
         genres = genres,
+        year = detailDto.firstAirDate?.take(4) ?: "N/A",
     )
+  }
+
+  private fun languageDisplayName(code: String?): String {
+    if (code == null) return "N/A"
+    return java.util.Locale.forLanguageTag(code)
+        .getDisplayLanguage(java.util.Locale.ENGLISH)
+        .replaceFirstChar { it.uppercase() }
+        .ifBlank { "N/A" }
+  }
+
+  private fun countryDisplayName(code: String?): String {
+    if (code.isNullOrBlank()) return "N/A"
+
+    return java.util.Locale.Builder()
+        .setRegion(code)
+        .build()
+        .getDisplayCountry(java.util.Locale.ENGLISH)
+        .ifBlank { "N/A" }
   }
 
   fun mapCast(credits: CreditsResponse): List<CastMember> {

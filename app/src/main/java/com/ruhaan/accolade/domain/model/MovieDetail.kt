@@ -13,7 +13,8 @@ data class MovieDetail(
     val synopsis: String,
     val rating: Int, // percentage (0-100)
     val trailer: Trailer?,
-    val genres: List<Genre> = emptyList(), // ADD THIS
+    val genres: List<Genre> = emptyList(),
+    val year: String,
 )
 
 data class DirectorInfo(val id: Int, val name: String)

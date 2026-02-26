@@ -127,6 +127,7 @@ class MovieRepositoryImpl @Inject constructor(private val apiService: TmdbApiSer
             page = page,
             minDate = today(),
             maxDate = daysFromToday(7),
+            minPopularity = 10f,
             withOriginalLanguage = targetLanguages,
         )
     return PaginatedResult(
@@ -142,6 +143,7 @@ class MovieRepositoryImpl @Inject constructor(private val apiService: TmdbApiSer
             page = page,
             minDate = today(),
             maxDate = daysFromToday(7),
+            minPopularity = 10f,
             withOriginalLanguage = targetLanguages,
         )
     return PaginatedResult(

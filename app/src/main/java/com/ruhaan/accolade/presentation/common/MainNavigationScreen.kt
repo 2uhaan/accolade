@@ -13,41 +13,54 @@ import androidx.navigation.NavController
 import com.ruhaan.accolade.presentation.home.components.ModernTopBar
 import com.ruhaan.accolade.presentation.search.SearchScreen
 import com.ruhaan.accolade.presentation.search.SearchViewModel
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MainNavigationScreen(
     navController: NavController,
     searchViewModel: SearchViewModel = hiltViewModel(),
     content: @Composable () -> Unit,
 ) {
-  var isSearchExpanded by remember { mutableStateOf(false) }
-  var searchQuery by remember { mutableStateOf("") }
+    var isSearchExpanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
-  if (isSearchExpanded) {
-    // Show search screen when expanded
-    SearchScreen(
-        navController = navController,
-        searchQuery = searchQuery,
-        onSearchQueryChange = { searchQuery = it },
-        onSearchClose = {
-          isSearchExpanded = false
-          searchQuery = ""
-          searchViewModel.clearSearch()
-        },
-        viewModel = searchViewModel,
-    )
-  } else {
-    Column(modifier = Modifier.fillMaxSize()) {
-      ModernTopBar(
-          isSearchExpanded = false,
-          searchQuery = "",
-          onSearchQueryChange = {},
-          onSearchClick = { isSearchExpanded = true },
-          onSearchClose = {},
-      )
-
-      // Screen content goes here
-      content()
+    // REPLACE the if/else block with this:
+    SharedTransitionLayout {
+        AnimatedContent(
+            targetState = isSearchExpanded,
+            label = "searchTransition",
+        ) { expanded ->
+            if (expanded) {
+                SearchScreen(
+                    navController = navController,
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { searchQuery = it },
+                    onSearchClose = {
+                        isSearchExpanded = false
+                        searchQuery = ""
+                        searchViewModel.clearSearch()
+                    },
+                    viewModel = searchViewModel,
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this@AnimatedContent,
+                )
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    ModernTopBar(
+                        isSearchExpanded = false,
+                        searchQuery = "",
+                        onSearchQueryChange = {},
+                        onSearchClick = { isSearchExpanded = true },
+                        onSearchClose = {},
+                        sharedTransitionScope = this@SharedTransitionLayout,
+                        animatedVisibilityScope = this@AnimatedContent,
+                    )
+                    content()
+                }
+            }
+        }
     }
-  }
 }
